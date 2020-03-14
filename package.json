@@ -1,0 +1,41 @@
+{
+  "name": "pimatic-meross",
+  "description": "meross plugin for Pimatic home automation system",
+  "author": {
+    "name": "Bert Gierveld",
+    "email": "gitbertreb@gmail.com",
+    "url": "https://github.com/bertreb"
+  },
+  "main": "pimatic-meross",
+  "files": [
+    "pimatic-meross.coffee",
+    "pimatic-meross-config-schema.coffee",
+    "device-config-schema.coffee",
+    "README.md",
+    "LICENSE"
+  ],
+  "homepage": "https://github.com/bertreb/pimatic-meross.git",
+  "keywords": [
+    "pimatic",
+    "gbridge",
+    "google",
+    "assistant"
+  ],
+  "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bertreb/pimatic-meross.git"
+  },
+  "configSchema": "pimatic-meross-config-schema.coffee",
+  "dependencies": {
+    "meross-cloud": ">=1.3.3",
+    "lodash": "^4.17.15"
+  },
+  "peerDependencies": {
+    "pimatic": "0.9.*"
+  },
+  "engines": {
+    "node": ">=4",
+    "npm": ">=2"
+  }
+}
