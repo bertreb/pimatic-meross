@@ -2,25 +2,8 @@ module.exports = (env) ->
   Promise = env.require 'bluebird'
   assert = env.require 'cassert'
   M = env.matcher
-  ###
-  types = env.require('decl-api').types
-  rp = require 'request-promise'
-  gbridgeConnector = require('./gbridge-connector')(env)
-  switchAdapter = require('./adapters/switch')(env)
-  lightAdapter = require('./adapters/light')(env)
-  lightColorAdapter = require('./adapters/lightcolor')(env)
-  buttonAdapter = require('./adapters/button')(env)
-  shutterAdapter = require('./adapters/shutter')(env)
-  heatingThermostatAdapter = require('./adapters/heatingthermostat')(env)
-  contactAdapter = require('./adapters/contact')(env)
-  temperatureAdapter = require('./adapters/temperature')(env)
-  #sceneAdapter = require('./adapters/scene')(env)
-  mqtt = require('mqtt')
-  ###
   _ = require('lodash')
   MerossCloud = require 'meross-cloud'
-
-
 
   class MerossPlugin extends env.plugins.Plugin
     init: (app, @framework, @config) =>
@@ -32,7 +15,7 @@ module.exports = (env) ->
 
       @merossDevices = {}
 
-      options = 
+      options =
         email: @config.username
         password: @config.password
         logger: console.log
@@ -45,29 +28,6 @@ module.exports = (env) ->
         @merossDevices[deviceId] = device
         @connected = true
         env.logger.info "Nr of devices: " + _.size(@merossDevices)
-        ###
-        New deviceDef 1912063268451725187748e1e912ddc2: {
-        18:32:43.951 [pimatic-meross]>  "uuid": "1912063268451725187748e1e912ddc2",
-        18:32:43.951 [pimatic-meross]>  "onlineStatus": 1,
-        18:32:43.951 [pimatic-meross]>  "devName": "Living room lamp 1",
-        18:32:43.951 [pimatic-meross]>  "devIconId": "device023",
-        18:32:43.951 [pimatic-meross]>  "bindTime": 1584119227,
-        18:32:43.951 [pimatic-meross]>  "deviceType": "mss210",
-        18:32:43.951 [pimatic-meross]>  "subType": "eu",
-        18:32:43.951 [pimatic-meross]>  "channels": [
-        18:32:43.951 [pimatic-meross]>    {}
-        18:32:43.951 [pimatic-meross]>  ],
-        18:32:43.951 [pimatic-meross]>  "region": "eu",
-        18:32:43.951 [pimatic-meross]>  "fmwareVersion": "2.1.5",
-        18:32:43.951 [pimatic-meross]>  "hdwareVersion": "2.0.0",
-        18:32:43.951 [pimatic-meross]>  "userDevIcon": "",
-        18:32:43.951 [pimatic-meross]>  "iconType": 1,
-        18:32:43.951 [pimatic-meross]>  "skillNumber": "",
-        18:32:43.951 [pimatic-meross]>  "domain": "mqtt-eu.meross.com",
-        18:32:43.951 [pimatic-meross]>  "reservedDomain": "mqtt-eu-alter.meross.com"
-        18:32:43.951 [pimatic-meross]>}
-        ###
-
         device.on 'connected', () =>
           env.logger.debug 'DEV: ' + deviceId + ' connected'
           @emit 'deviceConnected', device.dev.uuid
@@ -81,7 +41,7 @@ module.exports = (env) ->
         device.on 'close', (error) =>
           env.logger.debug 'DEV: ' + deviceId + ' closed: ' + error
           @emit 'deviceDisonnected', device.dev.uuid
-      
+
         device.on 'error', (error) =>
           env.logger.debug 'DEV: ' + deviceId + ' error: ' + error
           @emit 'deviceDisonnected', device.dev.uuid
@@ -168,7 +128,7 @@ module.exports = (env) ->
           return
         env.logger.debug 'init succesful'
       )
-      
+
       @framework.deviceManager.registerDeviceClass('MerossGaragedoor', {
         configDef: deviceConfigDef.MerossGaragedoor,
         createCallback: (config, lastState) => new MerossGaragedoor(config, lastState, @framework, @)
@@ -209,8 +169,6 @@ module.exports = (env) ->
           env.logger.info "Meross offline"
       )
 
-
-
   class MerossGaragedoor extends env.devices.PowerSwitch
 
     constructor: (@config, lastState, @framework, @plugin) ->
@@ -222,7 +180,6 @@ module.exports = (env) ->
       @_contact = lastState?.contact?.value or false
       #@_state = lastState?.state?.value or off
       @_status = lastState?.status?.value or "closed"
-      @_battery = lastState?.battery?.value
       @_setStatus(@_status)
 
       @addAttribute  'contact',
@@ -234,14 +191,14 @@ module.exports = (env) ->
         description: "Garagedoor status",
         type: "string"
         acronym: "action"
-  
+
       @_setStatus(@status)
 
       @framework.on 'deviceChanged', (device) =>
         env.logger.info "deviceChanged " + device.id
         if device.id is @id
           @device = @plugin.meross.getDevice(@id)
-          @device.on 'data', @handleData          
+          @device.on 'data', @handleData
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
@@ -264,9 +221,8 @@ module.exports = (env) ->
           @_setStatus("offline")
           @device.removeListener('data', @handleData)
 
-
       super()
-  
+
 
     handleData: (namespace, payload) =>
       env.logger.info "device: " + @id + ", Payload: " + JSON.stringify(payload,null,2)
@@ -276,7 +232,6 @@ module.exports = (env) ->
           #@_setContact(Boolean(payload.togglex[0].onoff))
         when 'Appliance.System.Online'
           if payload.online.status == 1 then @_setStatus("online") else @_setStatus("offline")
-
 
     _setContact: (value) ->
       if @_contact is value then return
@@ -299,9 +254,9 @@ module.exports = (env) ->
       @_setState(newState)
       setTimeout(()=>
         if @_state
-          @_setContact(true) 
+          @_setContact(true)
           @_setStatus("")
-        else 
+        else
           @_setContact(false)
           @_setStatus("")
       , 5000)
@@ -321,7 +276,7 @@ module.exports = (env) ->
         reject()
 
         # check if garagedoor device
-        
+
         switch command
           when "open"
             device.controlGarageDoor(1, 1, (err,resp)=>
@@ -361,8 +316,6 @@ module.exports = (env) ->
       @_status = lastState?.status?.value
       @deviceConnected = false
 
-      #@abilities = []
-
       @addAttribute 'status',
         description: "Smartplug status",
         type: "string"
@@ -373,7 +326,7 @@ module.exports = (env) ->
         env.logger.info "deviceChanged " + device.id
         if device.id is @id
           @device = @plugin.meross.getDevice(@id)
-          @device.on 'data', @handleData          
+          @device.on 'data', @handleData
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
@@ -398,7 +351,7 @@ module.exports = (env) ->
           @device.removeListener('data', @handleData)
 
       super()
-    
+
 
     handleData: (namespace, payload) =>
       env.logger.info "device: " + @id + ", Payload: " + JSON.stringify(payload,null,2)
