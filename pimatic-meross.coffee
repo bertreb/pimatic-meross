@@ -142,7 +142,7 @@ module.exports = (env) ->
 
       @supportedTypes = [
         {merossType: 'mss210', pimaticType: 'MerossSmartplug'},
-        {merossType: 'msg100', pimaticType: 'MerossGarageDoor'}
+        {merossType: 'msg100', pimaticType: 'MerossGaragedoor'}
       ]
       @framework.deviceManager.on('discover', (eventData) =>
         @framework.deviceManager.discoverMessage 'pimatic-meross', 'Searching for new devices'
