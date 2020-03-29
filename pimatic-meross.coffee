@@ -141,7 +141,8 @@ module.exports = (env) ->
       @framework.ruleManager.addActionProvider(new MerossActionProvider(@framework))
 
       @supportedTypes = [
-        {merossType: 'mss210', pimaticType: 'MerossSmartplug'}
+        {merossType: 'mss210', pimaticType: 'MerossSmartplug'},
+        {merossType: 'msg100', pimaticType: 'MerossGarageDoor'}
       ]
       @framework.deviceManager.on('discover', (eventData) =>
         @framework.deviceManager.discoverMessage 'pimatic-meross', 'Searching for new devices'
