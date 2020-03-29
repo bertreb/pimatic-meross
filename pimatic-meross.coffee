@@ -253,6 +253,7 @@ module.exports = (env) ->
       else
         @_setStatus("closing")
       @_setState(newState)
+      ###
       setTimeout(()=>
         if @_state
           @_setContact(true)
@@ -262,6 +263,7 @@ module.exports = (env) ->
           @_setStatus("")
       , 5000)
       return
+      ###
       @device.controlGarageDoor(1, _state, (err,resp)=>
         if err
           env.logger.debug "Error executing garagedoor open"
