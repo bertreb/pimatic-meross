@@ -386,7 +386,7 @@ module.exports = (env) ->
 
 
     destroy:() =>
-      @device.removeListener('data', @handleData)
+      @removeAllListeners()
       super()
 
 
