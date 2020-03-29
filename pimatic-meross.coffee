@@ -185,17 +185,17 @@ module.exports = (env) ->
       @_status = lastState?.status?.value or "closed"
       @_setStatus(@_status)
 
-      @addAttribute  'contact',
+      @addAttribute 'contact',
         description: "Garagedoor status",
         type: "boolean"
         labels: ["open","closed"]
-        acronym: "state"
+        acronym: "contact"
       @addAttribute  'status',
         description: "Garagedoor status",
         type: "string"
-        acronym: "action"
+        acronym: "status"
 
-      @_setStatus(@status)
+      @_setStatus(@_status)
 
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
@@ -206,11 +206,17 @@ module.exports = (env) ->
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
-          @deviceConnected = true
           @device = @plugin.meross.getDevice(@id)
+          unless @device?
+            env.logger.debug "Device '#{@name}' does not exsist"
+            return
           @device.getSystemAllData((err,allData)=>
-            env.logger.info "AllData: " + JSON.stringify(allData,null,2)
+            if err
+              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+              return
+            env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
           )
+          @deviceConnected = true
           @device.on 'data', @handleData
           @device.getOnlineStatus((err, res) =>
             if err?
@@ -229,11 +235,18 @@ module.exports = (env) ->
 
 
     handleData: (namespace, payload) =>
-      env.logger.info "device: " + @id + ", Payload: " + JSON.stringify(payload,null,2)
+      env.logger.debug "device: " + @id + ", Payload: " + JSON.stringify(payload,null,2)
       switch namespace
         when 'Appliance.GarageDoor.State'
-          env.logger.info "Garagaedoor State: " + JSON.stringify(payload,null,2)
-          #@_setContact(Boolean(payload.togglex[0].onoff))
+          env.logger.debug "Garagedoor State: " + JSON.stringify(payload,null,2)
+          newState = Boolean(payload.togglex[0].onoff)
+          @_setContact(newState)
+          if @_status is "closing" and newState is true
+            # garagdoor is closed after closing
+            @_setStatus("closed")
+          if @_status is "closed" and newState is false
+            # garagdoor is opeing after being closed
+            @_setStatus("opening")
         when 'Appliance.System.Online'
           if payload.online.status == 1 then @_setStatus("online") else @_setStatus("offline")
 
@@ -250,38 +263,21 @@ module.exports = (env) ->
     getStatus: -> Promise.resolve(@_status)
 
     changeStateTo: (newState) =>
-      env.logger.info "Set garagdoor to " + (if newState then "open" else "closed")
-      if newState
-        @_setStatus("opening")
-      else
-        @_setStatus("closing")
-      @_setState(newState)
-      ###
-      setTimeout(()=>
-        if @_state
-          @_setContact(true)
-          @_setStatus("")
-        else
-          @_setContact(false)
-          @_setStatus("")
-      , 5000)
-      return
-      ###
-      @device.controlGarageDoor(1, _state, (err,resp)=>
+      unless @deviceConnected and @device?
+        env.logger.debug "Device '#{@name}' is offline"
+        return
+      env.logger.debug "Set garagedoor to " + (if newState then "open" else "closed")
+      if newState then _newState = 1 else _newState = 0
+      @device.controlGarageDoor(1, _newState, (err,resp)=>
         if err
-          env.logger.debug "Error executing garagedoor open"
-          reject()
-        env.logger.debug "Garagedoor open command execute: " + resp
-        resolve()
+          env.logger.debug "Error executing garagedoor open " + err
+          return
+        env.logger.debug "Garagedoor open command executed: " + resp
       )
 
     execute: (device, command, options) =>
       env.logger.debug "@attributes.OperationState '#{@attributeValues.OperationState}', command #{command}"
-
       return new Promise((resolve, reject) =>
-        reject()
-
-        # check if garagedoor device
 
         switch command
           when "open"
@@ -305,8 +301,6 @@ module.exports = (env) ->
         reject()
       )
 
-    getState: () =>
-      Promise.resolve @_contact
 
     destroy:() =>
       @device.removeListener('data', @handleData)
