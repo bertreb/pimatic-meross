@@ -178,6 +178,8 @@ module.exports = (env) ->
       @name = @config.name
       @deviceId = @config.deviceId
 
+      if @_destroyed then return
+
       @_contact = lastState?.contact?.value or false
       #@_state = lastState?.state?.value or off
       @_status = lastState?.status?.value or "closed"
@@ -196,8 +198,9 @@ module.exports = (env) ->
       @_setStatus(@status)
 
       @framework.on 'deviceChanged', (device) =>
-        env.logger.info "deviceChanged " + device.id
+        if @_destroyed then return
         if device.id is @id
+          env.logger.info "deviceChanged " + device.id
           @device = @plugin.meross.getDevice(@id)
           @device.on 'data', @handleData
 
@@ -306,7 +309,8 @@ module.exports = (env) ->
       Promise.resolve @_contact
 
     destroy:() =>
-      @removeAllListeners()
+      @device.removeListener('data', @handleData)
+      #@removeAllListeners()
       super()
 
   class MerossSmartplug extends env.devices.SwitchActuator
@@ -319,6 +323,8 @@ module.exports = (env) ->
       @_status = lastState?.status?.value
       @deviceConnected = false
 
+      if @_destroyed then return
+
       @addAttribute 'status',
         description: "Smartplug status",
         type: "string"
@@ -326,8 +332,9 @@ module.exports = (env) ->
       @_setStatus("offline")
 
       @framework.on 'deviceChanged', (device) =>
-        env.logger.info "deviceChanged " + device.id
+        if @_destroyed then return
         if device.id is @id
+          env.logger.info "deviceChanged " + device.id
           @device = @plugin.meross.getDevice(@id)
           @device.on 'data', @handleData
 
@@ -386,7 +393,7 @@ module.exports = (env) ->
 
 
     destroy:() =>
-      @removeAllListeners()
+      @device.removeListener('data', @handleData)
       super()
 
 
