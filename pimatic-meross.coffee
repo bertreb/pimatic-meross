@@ -235,7 +235,7 @@ module.exports = (env) ->
 
 
     handleData: (namespace, payload) =>
-      env.logger.debug "device: " + @id + ", Payload: " + JSON.stringify(payload,null,2)
+      env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
       switch namespace
         when 'Appliance.GarageDoor.State'
           env.logger.debug "Garagedoor State: " + JSON.stringify(payload,null,2)
@@ -248,7 +248,7 @@ module.exports = (env) ->
             # garagdoor is opeing after being closed
             @_setStatus("opening")
         when 'Appliance.System.Online'
-          if payload.online.status == 1 then @_setStatus("online") else @_setStatus("offline")
+          if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
 
     _setContact: (value) ->
       if @_contact is value then return
@@ -358,14 +358,14 @@ module.exports = (env) ->
 
 
     handleData: (namespace, payload) =>
-      env.logger.info "device: " + @id + ", Payload: " + JSON.stringify(payload,null,2)
+      env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
       switch namespace
         when 'Appliance.Control.ToggleX'
           @_setState(Boolean(payload.togglex[0].onoff))
         when 'Appliance.Control.Toggle'
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
-          if payload.online.status == 1 then @_setStatus("online") else @_setStatus("offline")
+          if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
 
 
     changeStateTo: (state) =>
