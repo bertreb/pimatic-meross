@@ -183,7 +183,7 @@ module.exports = (env) ->
       @_contact = lastState?.contact?.value or false
       #@_state = lastState?.state?.value or off
       @_status = lastState?.status?.value or "closed"
-      @_setStatus(@_status)
+      @deviceConnected = false
 
       @addAttribute 'contact',
         description: "Garagedoor status",
