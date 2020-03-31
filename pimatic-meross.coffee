@@ -240,8 +240,10 @@ module.exports = (env) ->
         switch namespace
           when 'Appliance.GarageDoor.State'
             env.logger.debug "Garagedoor State: " + JSON.stringify(payload,null,2)
-            ###
-            newState = Boolean(payload.togglex[0].onoff)
+            if payload.state[0]?.open?
+              newState = Boolean(payload.state[0].open)
+            else
+              newState = false
             @_setContact(newState)
             if @_status is "closing" and newState is true
               # garagdoor is closed after closing
@@ -249,7 +251,6 @@ module.exports = (env) ->
             if @_status is "closed" and newState is false
               # garagdoor is opeing after being closed
               @_setStatus("opening")
-            ###
           when 'Appliance.System.Online'
             if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
       catch err
