@@ -236,19 +236,25 @@ module.exports = (env) ->
 
     handleData: (namespace, payload) =>
       env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
-      switch namespace
-        when 'Appliance.GarageDoor.State'
-          env.logger.debug "Garagedoor State: " + JSON.stringify(payload,null,2)
-          newState = Boolean(payload.togglex[0].onoff)
-          @_setContact(newState)
-          if @_status is "closing" and newState is true
-            # garagdoor is closed after closing
-            @_setStatus("closed")
-          if @_status is "closed" and newState is false
-            # garagdoor is opeing after being closed
-            @_setStatus("opening")
-        when 'Appliance.System.Online'
-          if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
+      try
+        switch namespace
+          when 'Appliance.GarageDoor.State'
+            env.logger.debug "Garagedoor State: " + JSON.stringify(payload,null,2)
+            ###
+            newState = Boolean(payload.togglex[0].onoff)
+            @_setContact(newState)
+            if @_status is "closing" and newState is true
+              # garagdoor is closed after closing
+              @_setStatus("closed")
+            if @_status is "closed" and newState is false
+              # garagdoor is opeing after being closed
+              @_setStatus("opening")
+            ###
+          when 'Appliance.System.Online'
+            if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
+      catch err
+        env.logger.debug "error handleData handled: " + err
+
 
     _setContact: (value) ->
       if @_contact is value then return
