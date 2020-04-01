@@ -285,8 +285,8 @@ module.exports = (env) ->
       @_status = value
       @emit 'status', value
 
-    getContact: -> Promise.resolve(@_contact)
-    getStatus: -> Promise.resolve(@_status)
+    getContact: => Promise.resolve(@_contact)
+    getStatus: => Promise.resolve(@_status)
 
     changeStateTo: (newState) =>
       @getState()
@@ -301,6 +301,7 @@ module.exports = (env) ->
           if newState then _newState = 1 else _newState = 0
           @getContact()
           .then((contact)=>
+            env.logger.debug "ContactState '#{contact}'' in dooraction '" + _newState + "'"
             if not contact and _newState # door is closed (contact is closed) and intend is to open garagedoor
               env.logger.debug "Open garagedoor"
               @device.controlGarageDoor(1, 1, (err,resp)=>
@@ -309,7 +310,7 @@ module.exports = (env) ->
                   return
                 env.logger.debug "Garagedoor open command executed: " + resp
               )
-            if contact and not _newState # door is open (contact is open) and intent is to close garagedoor
+            else if contact and not _newState # door is open (contact is open) and intent is to close garagedoor
               env.logger.debug "Close garagedoor"
               @device.controlGarageDoor(1, 0, (err,resp)=>
                 if err
