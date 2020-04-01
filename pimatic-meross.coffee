@@ -243,17 +243,17 @@ module.exports = (env) ->
             if payload.state[0]?.open?
               newState = Boolean(payload.state[0].open)
             else
-              newState = false
+              newState = false # contact is closed = garagedoor closed
             @_setContact(newState)
             .then(()=>
               if newState is true
-                # contact is open -> garagdoor is closed
-                @_setStatus("closed")
-                @changeStateTo(false)
-              else # newState is false
-                # contact is closed -> garagdoor is open
+                # contact is open -> garagdoor is open
                 @_setStatus("open")
                 @changeStateTo(true)
+              else # newState is false
+                # contact is closed -> garagdoor is closed
+                @_setStatus("closed")
+                @changeStateTo(false)
             )
           when 'Appliance.System.Online'
             if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
@@ -288,7 +288,7 @@ module.exports = (env) ->
             return
           if newState then _newState = 1 else _newState = 0
           @getContact((contact)=>
-            if contact and _newState # contact is opened, garagedoor is closed
+            if not contact and _newState # door is closed (contact is closed) and intend is to open garagedoor
               env.logger.debug "Open garagedoor"
               @device.controlGarageDoor(1, 1, (err,resp)=>
                 if err
@@ -296,7 +296,7 @@ module.exports = (env) ->
                   return
                 env.logger.debug "Garagedoor open command executed: " + resp
               )
-            if not contact and not _newState # contact is closed, garagedoor is opened
+            if contact and not _newState # door is open (contact is open) and intent is to close garagedoor
               env.logger.debug "Close garagedoor"
               @device.controlGarageDoor(1, 0, (err,resp)=>
                 if err
