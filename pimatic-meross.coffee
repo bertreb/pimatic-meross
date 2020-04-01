@@ -245,12 +245,16 @@ module.exports = (env) ->
             else
               newState = false
             @_setContact(newState)
-            if @_status is "closing" and newState is true
-              # garagdoor is closed after closing
-              @_setStatus("closed")
-            if @_status is "closed" and newState is false
-              # garagdoor is opeing after being closed
-              @_setStatus("opening")
+            .then(()=>
+              if newState is true
+                # contact is open -> garagdoor is closed
+                @_setStatus("closed")
+                @changeStateTo(false)
+              else # newState is false
+                # contact is closed -> garagdoor is open
+                @_setStatus("open")
+                @changeStateTo(true)
+            )
           when 'Appliance.System.Online'
             if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
       catch err
@@ -258,9 +262,13 @@ module.exports = (env) ->
 
 
     _setContact: (value) ->
-      if @_contact is value then return
-      @_contact = value
-      @emit 'contact', value
+      return new Promise((resolve,reject)=>
+        if @_contact is value
+          resolve()
+        @_contact = value
+        @emit 'contact', value
+        resolve()
+      )
 
     _setStatus: (status) ->
       @_status = status
@@ -270,17 +278,35 @@ module.exports = (env) ->
     getStatus: -> Promise.resolve(@_status)
 
     changeStateTo: (newState) =>
-      unless @deviceConnected and @device?
-        env.logger.debug "Device '#{@name}' is offline"
-        return
-      env.logger.debug "Set garagedoor to " + (if newState then "open" else "closed")
-      if newState then _newState = 1 else _newState = 0
-      @device.controlGarageDoor(1, _newState, (err,resp)=>
-        if err
-          env.logger.debug "Error executing garagedoor open " + err
+      @getState((state)=>
+        if state is newState
+          env.logger.debug "Switch is already is requested state"
           return
-        env.logger.debug "Garagedoor open command executed: " + resp
+        else
+          unless @deviceConnected and @device?
+            env.logger.debug "Device '#{@name}' is offline"
+            return
+          if newState then _newState = 1 else _newState = 0
+          @getContact((contact)=>
+            if contact and _newState # contact is opened, garagedoor is closed
+              env.logger.debug "Open garagedoor"
+              @device.controlGarageDoor(1, 1, (err,resp)=>
+                if err
+                  env.logger.debug "Error executing garagedoor open " + err
+                  return
+                env.logger.debug "Garagedoor open command executed: " + resp
+              )
+            if not contact and not _newState # contact is closed, garagedoor is opened
+              env.logger.debug "Close garagedoor"
+              @device.controlGarageDoor(1, 0, (err,resp)=>
+                if err
+                  env.logger.debug "Error executing close garagedoor " + err
+                  return
+                env.logger.debug "Garagedoor close command executed: " + resp
+              )
+          )
       )
+
 
     execute: (device, command, options) =>
       env.logger.debug "@attributes.OperationState '#{@attributeValues.OperationState}', command #{command}"

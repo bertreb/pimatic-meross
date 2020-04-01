@@ -9,3 +9,5 @@
 * 20200331, v0.0.11
 	* edit on/offline status handling
 	* edit garagedoor status
+* 20200401, v0.0.12
+	* sync garagedoor remote and gui
