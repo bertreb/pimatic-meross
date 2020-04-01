@@ -13,5 +13,5 @@
 	* sync garagedoor remote and gui
 * 20200401, v0.0.13
 	* changed garagedoor contact logic
-* 20200401, v0.0.14-
+* 20200401, v0.0.15-
 	* debug versions

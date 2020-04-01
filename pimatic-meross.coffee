@@ -181,6 +181,7 @@ module.exports = (env) ->
       if @_destroyed then return
 
       @_contact = lastState?.contact?.value or false
+      @_state = lastState?.state?.value or false
       @_status = false
       @deviceConnected = false
 
@@ -271,7 +272,7 @@ module.exports = (env) ->
         env.logger.debug "error handleData handled: " + err
 
 
-    _setContact: (value) ->
+    _setContact: (value) =>
       return new Promise((resolve,reject)=>
         if @_contact is value
           resolve()
@@ -280,7 +281,7 @@ module.exports = (env) ->
         resolve()
       )
 
-    _setStatus: (value) ->
+    _setStatus: (value) =>
       @_status = value
       @emit 'status', value
 
@@ -288,7 +289,8 @@ module.exports = (env) ->
     getStatus: -> Promise.resolve(@_status)
 
     changeStateTo: (newState) =>
-      @getState((state)=>
+      @getState()
+      .then((state)=>
         if state is newState
           env.logger.debug "Switch is already is requested state"
           return
@@ -297,7 +299,8 @@ module.exports = (env) ->
             env.logger.debug "Device '#{@name}' is offline"
             return
           if newState then _newState = 1 else _newState = 0
-          @getContact((contact)=>
+          @getContact()
+          .then((contact)=>
             if not contact and _newState # door is closed (contact is closed) and intend is to open garagedoor
               env.logger.debug "Open garagedoor"
               @device.controlGarageDoor(1, 1, (err,resp)=>
@@ -315,6 +318,9 @@ module.exports = (env) ->
                 env.logger.debug "Garagedoor close command executed: " + resp
               )
           )
+      )
+      .catch((err)=>
+        env.logger.debug "Error in getState " + err
       )
 
 
