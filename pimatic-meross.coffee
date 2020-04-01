@@ -181,18 +181,19 @@ module.exports = (env) ->
       if @_destroyed then return
 
       @_contact = lastState?.contact?.value or false
-      #@_state = lastState?.state?.value or off
-      @_status = lastState?.status?.value or "closed"
+      @_status = false
       @deviceConnected = false
 
       @addAttribute 'contact',
-        description: "Garagedoor status",
+        description: "Garagedoor status"
         type: "boolean"
         labels: ["open","closed"]
-        acronym: "contact"
-      @addAttribute  'status',
+        acronym: "garagedoor"
+
+      @addAttribute 'status',
         description: "Garagedoor status",
-        type: "string"
+        type: "boolean"
+        labels: ["online","offline"]
         acronym: "status"
 
       @_setStatus(@_status)
@@ -202,7 +203,10 @@ module.exports = (env) ->
         if device.id is @id
           env.logger.info "deviceChanged " + device.id
           @device = @plugin.meross.getDevice(@id)
-          @device.on 'data', @handleData
+          if @device?
+            @device.on 'data', @handleData
+          else
+            env.logger.info "Unknown device " + @id
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
@@ -215,27 +219,35 @@ module.exports = (env) ->
               env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
               return
             env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
-          )
-          @deviceConnected = true
-          @device.on 'data', @handleData
-          @device.getOnlineStatus((err, res) =>
-            if err?
-              env.logger.debug "error getOnlineStatus: " + err
-            else
-              if res.online.status == 1 then @_setStatus("online") else @_setStatus("offline")
-              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
+            #set initial state
+            if allData?.all?.digest?.garageDoor?.open
+                newState = Boolean(allData.all.digest.garageDoor.open)
+              else
+                newState = false # contact is closed = garagedoor closed
+              @_setContact(newState)
+              .then(()=>
+                @device.on 'data', @handleData
+                if allData?.all?.system?.online?.status
+                  newOnlineState = Boolean(allData.all.system.online.status)
+                  if newOnlineState
+                    @deviceConnected = true
+                else
+                  newOnlineState = false
+                @_setStatus(newOnlineState)
+                env.logger.debug 'Online status: ' + newOnlineState
+              )
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           @deviceConnected = false
-          @_setStatus("offline")
+          @_setStatus(false)
           @device.removeListener('data', @handleData)
 
       super()
 
 
     handleData: (namespace, payload) =>
-      env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
+      env.logger.debug "Handledata, device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
       try
         switch namespace
           when 'Appliance.GarageDoor.State'
@@ -248,15 +260,13 @@ module.exports = (env) ->
             .then(()=>
               if newState is true
                 # contact is open -> garagdoor is open
-                @_setStatus("open")
                 @changeStateTo(true)
               else # newState is false
                 # contact is closed -> garagdoor is closed
-                @_setStatus("closed")
                 @changeStateTo(false)
             )
           when 'Appliance.System.Online'
-            if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
+            if payload.online.status == "1" then @_setStatus(true) else @_setStatus(false)
       catch err
         env.logger.debug "error handleData handled: " + err
 
@@ -270,9 +280,9 @@ module.exports = (env) ->
         resolve()
       )
 
-    _setStatus: (status) ->
-      @_status = status
-      @emit 'status', status
+    _setStatus: (value) ->
+      @_status = value
+      @emit 'status', value
 
     getContact: -> Promise.resolve(@_contact)
     getStatus: -> Promise.resolve(@_status)
@@ -336,7 +346,8 @@ module.exports = (env) ->
 
 
     destroy:() =>
-      @device.removeListener('data', @handleData)
+      if device?
+        @device.removeListener('data', @handleData)
       #@removeAllListeners()
       super()
 
@@ -354,9 +365,11 @@ module.exports = (env) ->
 
       @addAttribute 'status',
         description: "Smartplug status",
-        type: "string"
+        type: "boolean"
+        labels: ["offline","online"]
+        acronym: "status"
 
-      @_setStatus("offline")
+      @_setStatus(false)
 
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
@@ -378,13 +391,13 @@ module.exports = (env) ->
             if err?
               env.logger.debug "error getOnlineStatus: " + err
             else
-              if res.online.status == 1 then @_setStatus("online") else @_setStatus("offline")
+              if res.online.status == 1 then @_setStatus(true) else @_setStatus(false)
               env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           @deviceConnected = false
-          @_setStatus("offline")
+          @_setStatus(false)
           @device.removeListener('data', @handleData)
 
       super()
@@ -398,7 +411,7 @@ module.exports = (env) ->
         when 'Appliance.Control.Toggle'
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
-          if payload.online.status == "1" then @_setStatus("online") else @_setStatus("offline")
+          if payload.online.status == "1" then @_setStatus(true) else @_setStatus(false)
 
 
     changeStateTo: (state) =>
