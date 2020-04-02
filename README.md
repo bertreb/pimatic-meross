@@ -32,7 +32,7 @@ The following data is automatically generated on device discovery and should not
 }
 ```
 
-## Garagedoor Opener (msg100)
+### Garagedoor Opener (msg100)
 The following variables (attributes) are available in the gui / pimatic.
 
 ```
@@ -41,7 +41,7 @@ The following variables (attributes) are available in the gui / pimatic.
 ```
 The garagedoor is opened and closed via buttons. These buttons ca be controlled via the gui, rules or the api.
 
-## Smartplug (mss210)
+### Smartplug (mss210)
 The following variables (attributes) are available in the gui / pimatic.
 
 ```
