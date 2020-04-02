@@ -45,8 +45,8 @@ The garagedoor is opened and closed via buttons. These buttons ca be controlled 
 The following variables (attributes) are available in the gui / pimatic.
 
 ```
-<deviceId>.deviceStatus:   	"If the device is online or offline"
-<deviceId>.state:  			"Actual stateof the Smartplug switch (on or off)"
+<deviceId>.deviceStatus:  "If the device is online or offline"
+<deviceId>.state:         "Actual stateof the Smartplug switch (on or off)"
 ```
 The smartplug is switched on or off via the gui, rules or the api. If the button on the smartplug is toggled (swithed on or off) the switch in pimatic will also toggle.
 
