@@ -11,6 +11,8 @@
     "pimatic-meross.coffee",
     "pimatic-meross-config-schema.coffee",
     "device-config-schema.coffee",
+    "app/meross.coffee",
+    "app/meross.jade",
     "README.md",
     "LICENSE"
   ],
@@ -21,7 +23,7 @@
     "google",
     "assistant"
   ],
-  "version": "0.0.16",
+  "version": "0.0.17",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bertreb/pimatic-meross.git"

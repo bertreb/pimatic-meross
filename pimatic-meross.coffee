@@ -140,6 +140,16 @@ module.exports = (env) ->
 
       @framework.ruleManager.addActionProvider(new MerossActionProvider(@framework))
 
+      @framework.on "after init", =>
+        # Check if the mobile-frontent was loaded and get a instance
+        mobileFrontend = @framework.pluginManager.getPlugin 'mobile-frontend'
+        if mobileFrontend?
+          mobileFrontend.registerAssetFile 'js', "pimatic-meross/app/meross.coffee"
+          #mobileFrontend.registerAssetFile 'css', "pimatic-meross/app/css/meross.css"
+          mobileFrontend.registerAssetFile 'html', "pimatic-meross/app/meross.jade"
+        else
+          env.logger.warn "your plugin could not find the mobile-frontend. No gui will be available"
+
       @supportedTypes = [
         {merossType: 'mss210', pimaticType: 'MerossSmartplug'},
         {merossType: 'msg100', pimaticType: 'MerossGaragedoor'}
@@ -170,7 +180,17 @@ module.exports = (env) ->
           env.logger.info "Meross offline"
       )
 
-  class MerossGaragedoor extends env.devices.PowerSwitch
+  class MerossGaragedoor extends env.devices.Device
+
+    template: "meross-garagedoor"
+
+  
+    actions:
+      openGaragedoor:
+        description: "Open the garagedoor"
+      closeGaragedoor:
+        description: "Close the garagedoor"
+
 
     constructor: (@config, lastState, @framework, @plugin) ->
       #@config = config
@@ -180,24 +200,23 @@ module.exports = (env) ->
 
       if @_destroyed then return
 
-      @_contact = lastState?.contact?.value or false
-      @_state = lastState?.state?.value or false
-      @_status = false
+      @_garagedoorStatus = lastState?.garagedoorStatus?.value or false
+      @_deviceStatus = false
       @deviceConnected = false
 
-      @addAttribute 'contact',
+      @addAttribute 'garagedoorStatus',
         description: "Garagedoor status"
         type: "boolean"
         labels: ["open","closed"]
         acronym: "garagedoor"
 
-      @addAttribute 'status',
+      @addAttribute 'deviceStatus',
         description: "Garagedoor status",
         type: "boolean"
         labels: ["online","offline"]
-        acronym: "status"
+        acronym: "device"
 
-      @_setStatus(@_status)
+      @_setDeviceStatus(@_deviceStatus)
 
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
@@ -225,7 +244,7 @@ module.exports = (env) ->
                 newState = Boolean(allData.all.digest.garageDoor.open)
               else
                 newState = false # contact is closed = garagedoor closed
-              @_setContact(newState)
+              @_setGaragedoorStatus(newState)
               .then(()=>
                 @device.on 'data', @handleData
                 if allData?.all?.system?.online?.status
@@ -234,18 +253,53 @@ module.exports = (env) ->
                     @deviceConnected = true
                 else
                   newOnlineState = false
-                @_setStatus(newOnlineState)
+                @_setDeviceStatus(newOnlineState)
                 env.logger.debug 'Online status: ' + newOnlineState
               )
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           @deviceConnected = false
-          @_setStatus(false)
+          @_setDeviceStatus(false)
           @device.removeListener('data', @handleData)
 
       super()
 
+    getTemplateName: -> "meross-garagedoor"
+
+    openGaragedoor: -> 
+      unless @deviceConnected and @device?
+        env.logger.info "Device '#{@name}' is offline"
+        return
+      @getGaragedoorStatus()
+      .then((garagedoorStatus)=>
+        if garagedoorStatus is false # = contact is closed -> door is closed
+          @device.controlGarageDoor(1, 1, (err,resp)=>
+            if err
+              env.logger.debug "Error executing garagedoor open " + err
+              return
+            env.logger.info "Garagedoor opened"
+          )
+        else
+          env.logger.info "Garagedoor is already open"
+      )
+
+    closeGaragedoor: -> 
+      unless @deviceConnected and @device?
+        env.logger.info "Device '#{@name}' is offline"
+        return
+      @getGaragedoorStatus()
+      .then((garagedoorStatus)=>
+        if garagedoorStatus is true # = contact is opened -> door is open
+          @device.controlGarageDoor(1, 0, (err,resp)=>
+            if err
+              env.logger.debug "Error executing garagedoor close " + err
+              return
+            env.logger.info "Garagedoor closed"
+          )
+        else
+          env.logger.info "Garagedoor is already closed"
+      )
 
     handleData: (namespace, payload) =>
       env.logger.debug "Handledata, device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
@@ -257,98 +311,73 @@ module.exports = (env) ->
               newState = Boolean(payload.state[0].open)
             else
               newState = false # contact is closed = garagedoor closed
-            @_setContact(newState)
+            @_setGaragedoorStatus(newState)
             .then(()=>
-              if newState is true
-                # contact is open -> garagdoor is open
-                @changeStateTo(true)
-              else # newState is false
-                # contact is closed -> garagdoor is closed
-                @changeStateTo(false)
+              env.logger.debug "Garagedoor state changed to " + (if newState then "open" else "closed")
             )
           when 'Appliance.System.Online'
-            if payload.online.status == "1" then @_setStatus(true) else @_setStatus(false)
+            if payload.online.status == "1" then @_setDeviceStatus(true) else @_setDeviceStatus(false)
       catch err
         env.logger.debug "error handleData handled: " + err
 
 
-    _setContact: (value) =>
+    _setGaragedoorStatus: (value) =>
       return new Promise((resolve,reject)=>
-        if @_contact is value
+        if @_garagedoorStatus is value
           resolve()
-        @_contact = value
-        @emit 'contact', value
+        @_garagedoorStatus = value
+        @emit 'garagedoorStatus', @_garagedoorStatus
         resolve()
       )
 
-    _setStatus: (value) =>
-      @_status = value
-      @emit 'status', value
+    _setDeviceStatus: (value) =>
+      @_deviceStatus = value
+      @emit 'deviceStatus', @_deviceStatus
 
-    getContact: => Promise.resolve(@_contact)
-    getStatus: => Promise.resolve(@_status)
-
-    changeStateTo: (newState) =>
-      @getState()
-      .then((state)=>
-        if state is newState
-          env.logger.debug "Switch is already is requested state"
-          return
-        else
-          unless @deviceConnected and @device?
-            env.logger.debug "Device '#{@name}' is offline"
-            return
-          if newState then _newState = 1 else _newState = 0
-          @getContact()
-          .then((contact)=>
-            env.logger.debug "ContactState '#{contact}'' in dooraction '" + _newState + "'"
-            if not contact and _newState # door is closed (contact is closed) and intend is to open garagedoor
-              env.logger.debug "Open garagedoor"
-              @device.controlGarageDoor(1, 1, (err,resp)=>
-                if err
-                  env.logger.debug "Error executing garagedoor open " + err
-                  return
-                env.logger.debug "Garagedoor open command executed: " + resp
-              )
-            else if contact and not _newState # door is open (contact is open) and intent is to close garagedoor
-              env.logger.debug "Close garagedoor"
-              @device.controlGarageDoor(1, 0, (err,resp)=>
-                if err
-                  env.logger.debug "Error executing close garagedoor " + err
-                  return
-                env.logger.debug "Garagedoor close command executed: " + resp
-              )
-          )
-      )
-      .catch((err)=>
-        env.logger.debug "Error in getState " + err
-      )
+    getGaragedoorStatus: => Promise.resolve(@_garagedoorStatus)
+    getDeviceStatus: => Promise.resolve(@_deviceStatus)
 
 
     execute: (device, command, options) =>
-      env.logger.debug "@attributes.OperationState '#{@attributeValues.OperationState}', command #{command}"
+      env.logger.debug "Execute command: #{command} with options: #{options}"
       return new Promise((resolve, reject) =>
-
+        unless @deviceConnected and @device?
+          env.logger.info "Device '#{@name}' is offline"
+          return reject()
         switch command
           when "open"
-            device.controlGarageDoor(1, 1, (err,resp)=>
-              if err
-                env.logger.debug "Error executing garagedoor open"
-                reject()
-              env.logger.debug "Garagedoor open command execute: " + resp
-              resolve()
+            @getGaragedoorStatus()
+            .then((garagedoorStatus)=>
+              if garagedoorStatus is false # = contact is closed -> door is closed
+                @device.controlGarageDoor(1, 1, (err,resp)=>
+                  if err
+                    env.logger.debug "Error executing garagedoor open " + err
+                    reject()
+                  env.logger.info "Garagedoor opened"
+                  resolve()
+                )
+              else
+                env.logger.info "Garagedoor is already open"
+                resolve()
             )
           when "close"
-            device.controlGarageDoor(1, 0, (err,resp)=>
-              if err
-                env.logger.debug "Error executing garagedoor closed"
-                reject()
-              env.logger.debug "Garagedoor close command execute: " + resp
-              resolve()
+            @getGaragedoorStatus()
+            .then((garagedoorStatus)=>
+              if garagedoorStatus is true # = contact is opened -> door is open
+                @device.controlGarageDoor(1, 0, (err,resp)=>
+                  if err
+                    env.logger.debug "Error executing garagedoor close " + err
+                    reject()
+                  env.logger.info "Garagedoor closed"
+                  resolve()
+                )
+              else
+                env.logger.info "Garagedoor is already closed"
+                resolve()
             )
           else
             env.logger.debug "Unknown command received: " + command
-        reject()
+            reject()
       )
 
 
