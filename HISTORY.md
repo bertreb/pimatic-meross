@@ -15,5 +15,5 @@
 	* changed garagedoor contact logic
 * 20200401, v0.0.16
 	* debug versions
-* 20200402, v0.0.17
+* 20200402, v0.0.18
 	* added custom buttons

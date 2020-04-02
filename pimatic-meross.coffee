@@ -184,7 +184,7 @@ module.exports = (env) ->
 
     template: "meross-garagedoor"
 
-  
+
     actions:
       openGaragedoor:
         description: "Open the garagedoor"
@@ -204,17 +204,17 @@ module.exports = (env) ->
       @_deviceStatus = false
       @deviceConnected = false
 
-      @addAttribute 'garagedoorStatus',
-        description: "Garagedoor status"
-        type: "boolean"
-        labels: ["open","closed"]
-        acronym: "garagedoor"
-
       @addAttribute 'deviceStatus',
         description: "Garagedoor status",
         type: "boolean"
         labels: ["online","offline"]
         acronym: "device"
+
+      @addAttribute 'garagedoorStatus',
+        description: "Garagedoor status"
+        type: "boolean"
+        labels: ["open","closed"]
+        acronym: "garagedoor"
 
       @_setDeviceStatus(@_deviceStatus)
 
@@ -267,7 +267,7 @@ module.exports = (env) ->
 
     getTemplateName: -> "meross-garagedoor"
 
-    openGaragedoor: -> 
+    openGaragedoor: ->
       unless @deviceConnected and @device?
         env.logger.info "Device '#{@name}' is offline"
         return
@@ -284,7 +284,7 @@ module.exports = (env) ->
           env.logger.info "Garagedoor is already open"
       )
 
-    closeGaragedoor: -> 
+    closeGaragedoor: ->
       unless @deviceConnected and @device?
         env.logger.info "Device '#{@name}' is offline"
         return
