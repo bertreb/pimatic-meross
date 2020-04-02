@@ -19,9 +19,9 @@
   "homepage": "https://github.com/bertreb/pimatic-meross.git",
   "keywords": [
     "pimatic",
-    "gbridge",
-    "google",
-    "assistant"
+    "meross",
+    "garagedoor",
+    "smartplug"
   ],
   "version": "0.0.17",
   "repository": {
