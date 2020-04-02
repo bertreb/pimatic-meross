@@ -1,7 +1,7 @@
 # pimatic-meross
 Pimatic plugin for support of Meross devices
 
-This plugin lets you control and get status info from a Meross devices. The plugin supports the SmartPlug (mss210) and the Garagedoor Opener (msg100).
+This plugin lets you control and get status info from a Meross devices. This version of the plugin supports the SmartPlug (mss210) and the Garagedoor Opener (msg100).
 
 After downloading the Meross app, you can register in the app with your email and password.
 After registration you can add your meross device(s) in the app, configure the wifi and other settings.
