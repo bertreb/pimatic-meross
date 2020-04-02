@@ -50,63 +50,6 @@ module.exports = (env) ->
           env.logger.debug 'DEV: ' + deviceId + ' reconnected'
           @emit 'deviceConnected', device.dev.uuid
 
-        ###
-        device.on 'data', (namespace, payload) =>
-          env.logger.debug 'DEV: ' + deviceId + ' ' + namespace + ' - data: ' + JSON.stringify(payload)
-          switch namespace
-            when 'Appliance.Control.ToggleX'
-              device.emit 'togglex', payload
-              env.logger.debug "namespace received: " + namespace
-              #setValuesToggleX(deviceId, payload);
-            when 'Appliance.Control.Toggle'
-              env.logger.debug "namespace received: " + namespace
-              #device.emit 'smartplug', payload
-              #setValuesToggle(deviceId, payload);
-            when 'Appliance.System.Online'
-              env.logger.debug "namespace received: " + namespace
-              device.emit "onlineStatus", payload
-              #adapter.setState(deviceId + '.online', (payload.online.status === 1), true);
-            when 'Appliance.GarageDoor.State'
-              #env.logger.debug "namespace received: " + namespace
-              @emit 'garagedoor', payload
-              #setValuesGarageDoor(deviceId, payload);
-            when 'Appliance.System.DNDMode'
-              env.logger.debug "namespace received: " + namespace
-              #adapter.setState(deviceId + '.dnd', !!payload.DNDMode.mode, true);
-            when 'Appliance.Control.Light'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesLight(deviceId, payload);
-            when 'Appliance.Control.Spray'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesSpray(deviceId, payload);
-            when 'Appliance.Hub.ToggleX'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesHubToggleX(deviceId, payload);
-            when 'Appliance.Hub.Battery'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesHubBattery(deviceId, payload);
-            when 'Appliance.Hub.Mts100.Temperature'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesHubMts100Temperature(deviceId, payload);
-            when 'Appliance.Hub.Mts100.Mode'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesHubMts100Mode(deviceId, payload);
-            when 'Appliance.Hub.Sensor.TempHum'
-              env.logger.debug "namespace received: " + namespace
-              #setValuesHubMts100TempHum(deviceId, payload);
-            when 'Appliance.Control.Upgrade'
-              env.logger.debug "namespace received: " + namespace
-            when 'Appliance.System.Report'
-              env.logger.debug "namespace received: " + namespace
-            when 'Appliance.Control.ConsumptionX'
-              env.logger.debug "namespace received: " + namespace
-            else
-              env.logger.debug "Unknown namespace received: " + namespace
-        ###
-
-        #device.on 'rawData', (deviceId, message) =>
-        #  env.logger.debug "Device raw: " + deviceId + ' data: ' + JSON.stringify(message)
-
         device.on 'rawSendData', (message) =>
           #env.logger.debug "Device Send raw: " + deviceId + ' data: ' + JSON.stringify(message)
 
@@ -137,8 +80,6 @@ module.exports = (env) ->
         configDef: deviceConfigDef.MerossSmartplug,
         createCallback: (config, lastState) => new MerossSmartplug(config, lastState, @framework, @)
       })
-
-      @framework.ruleManager.addActionProvider(new MerossActionProvider(@framework))
 
       @framework.on "after init", =>
         # Check if the mobile-frontent was loaded and get a instance
@@ -201,7 +142,7 @@ module.exports = (env) ->
       if @_destroyed then return
 
       @_garagedoorStatus = lastState?.garagedoorStatus?.value or false
-      @_deviceStatus = false
+      @_deviceStatus = lastState?.deviceStatus?.value or false
       @deviceConnected = false
 
       @addAttribute 'deviceStatus',
@@ -221,7 +162,7 @@ module.exports = (env) ->
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
         if device.id is @id
-          env.logger.info "deviceChanged " + device.id
+          env.logger.debug "deviceChanged " + device.id
           @device = @plugin.meross.getDevice(@id)
           if @device?
             @device.on 'data', @handleData
@@ -338,49 +279,6 @@ module.exports = (env) ->
     getDeviceStatus: => Promise.resolve(@_deviceStatus)
 
 
-    execute: (device, command, options) =>
-      env.logger.debug "Execute command: #{command} with options: #{options}"
-      return new Promise((resolve, reject) =>
-        unless @deviceConnected and @device?
-          env.logger.info "Device '#{@name}' is offline"
-          return reject()
-        switch command
-          when "open"
-            @getGaragedoorStatus()
-            .then((garagedoorStatus)=>
-              if garagedoorStatus is false # = contact is closed -> door is closed
-                @device.controlGarageDoor(1, 1, (err,resp)=>
-                  if err
-                    env.logger.debug "Error executing garagedoor open " + err
-                    reject()
-                  env.logger.info "Garagedoor opened"
-                  resolve()
-                )
-              else
-                env.logger.info "Garagedoor is already open"
-                resolve()
-            )
-          when "close"
-            @getGaragedoorStatus()
-            .then((garagedoorStatus)=>
-              if garagedoorStatus is true # = contact is opened -> door is open
-                @device.controlGarageDoor(1, 0, (err,resp)=>
-                  if err
-                    env.logger.debug "Error executing garagedoor close " + err
-                    reject()
-                  env.logger.info "Garagedoor closed"
-                  resolve()
-                )
-              else
-                env.logger.info "Garagedoor is already closed"
-                resolve()
-            )
-          else
-            env.logger.debug "Unknown command received: " + command
-            reject()
-      )
-
-
     destroy:() =>
       if device?
         @device.removeListener('data', @handleData)
@@ -394,23 +292,23 @@ module.exports = (env) ->
       @id = @config.id
       @name = @config.name
       #@_state = lastState?.state?.value
-      @_status = lastState?.status?.value
+      @_deviceStatus = lastState?.deviceStatus?.value
       @deviceConnected = false
 
       if @_destroyed then return
 
-      @addAttribute 'status',
-        description: "Smartplug status",
+      @addAttribute 'deviceStatus',
+        description: "Garagedoor status",
         type: "boolean"
-        labels: ["offline","online"]
-        acronym: "status"
+        labels: ["online","offline"]
+        acronym: "device"
 
-      @_setStatus(false)
+      @_setDeviceStatus(@_deviceStatus)
 
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
         if device.id is @id
-          env.logger.info "deviceChanged " + device.id
+          env.logger.debug "deviceChanged " + device.id
           @device = @plugin.meross.getDevice(@id)
           @device.on 'data', @handleData
 
@@ -418,22 +316,21 @@ module.exports = (env) ->
         if uuid is @id and @deviceConnected is false
           @deviceConnected = true
           @device = @plugin.meross.getDevice(@id)
-          #@device.getSystemAbilities((err,abilities)=>
-          #  @abilities = abilities
-          #  env.logger.info "Abilities " + JSON.stringify(@abilities,null,2)
-          #)
+          @device.getSystemAbilities((err,abilities)=>
+            env.logger.info "Abilities " + JSON.stringify(abilities,null,2)
+          )
           @device.on 'data', @handleData
           @device.getOnlineStatus((err, res) =>
             if err?
               env.logger.debug "error getOnlineStatus: " + err
             else
-              if res.online.status == 1 then @_setStatus(true) else @_setStatus(false)
+              if Number res.online.status == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
               env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           @deviceConnected = false
-          @_setStatus(false)
+          @_setDeviceStatus(false)
           @device.removeListener('data', @handleData)
 
       super()
@@ -447,7 +344,7 @@ module.exports = (env) ->
         when 'Appliance.Control.Toggle'
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
-          if payload.online.status == "1" then @_setStatus(true) else @_setStatus(false)
+          if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
 
 
     changeStateTo: (state) =>
@@ -460,85 +357,17 @@ module.exports = (env) ->
           env.logger.info "Response " + res
         )
 
-    _setStatus: (value) ->
-      @_status = value
-      @emit 'status', value
 
-    getStatus: () =>
-      Promise.resolve @_status
+    _setDeviceStatus: (value) =>
+      @_deviceStatus = value
+      @emit 'deviceStatus', @_deviceStatus
+
+    getDeviceStatus: => Promise.resolve(@_deviceStatus)
 
 
     destroy:() =>
       @device.removeListener('data', @handleData)
       super()
-
-
-  class MerossActionProvider extends env.actions.ActionProvider
-
-    constructor: (@framework) ->
-
-    parseAction: (input, context) =>
-
-      merossDevice = null
-      merossDevices = _(@framework.deviceManager.devices).values().filter(
-        (device) => (device.config.class).indexOf("Meross")>= 0
-      ).value()
-      @options = []
-
-      setCommand = (command) =>
-        @command = command
-
-      m = M(input, context)
-        .match('meross ')
-        .matchDevice(merossDevices, (m, d) ->
-          # Already had a match with another device?
-          if merossDevice? and merossDevice.id isnt d.id
-            context?.addError(""""#{input.trim()}" is ambiguous.""")
-            return
-          merossDevice = d
-        )
-        .or([
-          ((m) =>
-            return m.match(' open', (m) =>
-              setCommand('open')
-              match = m.getFullMatch()
-            )
-          ),
-          ((m) =>
-            return m.match(' close', (m) =>
-              setCommand('close')
-              match = m.getFullMatch()
-            )
-           )
-        ])
-
-      match = m.getFullMatch()
-      if match? #m.hadMatch()
-        env.logger.debug "Rule matched: '", match, "' and passed to Action handler"
-        return {
-          token: match
-          nextInput: input.substring(match.length)
-          actionHandler: new MerossActionHandler(@framework, merossDevice, @command, @options)
-        }
-      else
-        return null
-
-
-  class MerossActionHandler extends env.actions.ActionHandler
-
-    constructor: (@framework, @merossDevice, @command, @options) ->
-
-    executeAction: (simulate) =>
-      if simulate
-        return __("would have cleaned \"%s\"", "")
-      else
-        @merossDevice.execute(@homeconnectDevice,@command, @options)
-        .then(()=>
-          return __("\"%s\" Rule executed", @command)
-        ).catch((err)=>
-          return __("\"%s\" Rule not executed", "")
-        )
-
 
 
   plugin = new MerossPlugin
