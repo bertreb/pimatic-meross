@@ -37,7 +37,7 @@ The following variables (attributes) are available in the gui / pimatic.
 
 ```
 <deviceId>.deviceStatus:      "If the device is online or offline"
-<deviceID>.garagedoorStatus:  "Actual status of the garagedoor (open or closed)"
+<deviceId>.garagedoorStatus:  "Actual status of the garagedoor (open or closed)"
 ```
 The garagedoor is opened and closed via buttons. These buttons ca be controlled via the gui, rules or the api.
 
