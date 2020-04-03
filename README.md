@@ -39,7 +39,7 @@ The following variables (attributes) are available in the gui / pimatic.
 <deviceId>.deviceStatus:      "If the device is online or offline"
 <deviceId>.garagedoorStatus:  "Actual status of the garagedoor (open or closed)"
 ```
-The garagedoor is opened and closed via buttons in the gui or via rules. The syntax is:
+The garagedoor is opened and closed via buttons in the gui or via rules. The rules action syntax is:
 ```
 meross <garagedoor-device-id> [open|close]
 ```
