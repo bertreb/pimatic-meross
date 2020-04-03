@@ -10,13 +10,8 @@ $(document).on 'templateinit', (event) ->
 
     getItemTemplate: => 'meross-garagedoor'
 
-    openGaragedoor: ->
-      @device.rest.openGaragedoor(global: no)
-        .done(ajaxShowToast)
-        .fail(ajaxAlertFail)
-
-    closeGaragedoor: ->
-      @device.rest.closeGaragedoor(global: no)
+    onButtonPressed: (buttonID) ->
+      @device.rest.buttonPressed({buttonId: "#{buttonID}"},global: no)
         .done(ajaxShowToast)
         .fail(ajaxAlertFail)
 

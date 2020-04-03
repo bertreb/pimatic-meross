@@ -17,3 +17,7 @@
 	* debug versions
 * 20200402, v0.0.18
 	* added custom buttons
+* 20200402, v0.1.0
+	* code cleanup
+* 20200403, v0.1.1
+	* added open/close command for garagedoor

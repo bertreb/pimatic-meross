@@ -81,6 +81,8 @@ module.exports = (env) ->
         createCallback: (config, lastState) => new MerossSmartplug(config, lastState, @framework, @)
       })
 
+      @framework.ruleManager.addActionProvider(new MerossActionProvider(@framework))
+
       @framework.on "after init", =>
         # Check if the mobile-frontent was loaded and get a instance
         mobileFrontend = @framework.pluginManager.getPlugin 'mobile-frontend'
@@ -123,20 +125,22 @@ module.exports = (env) ->
 
   class MerossGaragedoor extends env.devices.Device
 
+  
     template: "meross-garagedoor"
 
-
     actions:
-      openGaragedoor:
-        description: "Open the garagedoor"
-      closeGaragedoor:
-        description: "Close the garagedoor"
+      buttonPressed:
+        params:
+          buttonId:
+            type: "string"
+        description: "Press a button"
 
 
     constructor: (@config, lastState, @framework, @plugin) ->
       #@config = config
       @id = @config.id
       @name = @config.name
+      
       @deviceId = @config.deviceId
 
       if @_destroyed then return
@@ -144,6 +148,12 @@ module.exports = (env) ->
       @_garagedoorStatus = lastState?.garagedoorStatus?.value or false
       @_deviceStatus = lastState?.deviceStatus?.value or false
       @deviceConnected = false
+
+      @config.buttons=[
+        { id : "open" , text : "open" },
+        { id : "close" , text : "close" }
+      ]
+      
 
       @addAttribute 'deviceStatus',
         description: "Garagedoor status",
@@ -158,6 +168,7 @@ module.exports = (env) ->
         acronym: "garagedoor"
 
       @_setDeviceStatus(@_deviceStatus)
+
 
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
@@ -203,8 +214,17 @@ module.exports = (env) ->
           @deviceConnected = false
           @_setDeviceStatus(false)
           @device.removeListener('data', @handleData)
-
+      
       super()
+
+    buttonPressed: (buttonId) =>
+      if buttonId is "open"
+        @openGaragedoor()
+      else if buttonId is "close"
+        @closeGaragedoor()
+      else
+        env.logger.debug "Unknown button #{buttonId} received"
+
 
     getTemplateName: -> "meross-garagedoor"
 
@@ -278,9 +298,52 @@ module.exports = (env) ->
     getGaragedoorStatus: => Promise.resolve(@_garagedoorStatus)
     getDeviceStatus: => Promise.resolve(@_deviceStatus)
 
+    execute: (device, command, options) =>
+      env.logger.debug "Execute command: #{command} with options: #{options}"
+      return new Promise((resolve, reject) =>
+        unless @deviceConnected and @device?
+          env.logger.info "Device '#{@name}' is offline"
+          return reject()
+        switch command
+          when "open"
+            @getGaragedoorStatus()
+            .then((garagedoorStatus)=>
+              if garagedoorStatus is false # = contact is closed -> door is closed
+                @device.controlGarageDoor(1, 1, (err,resp)=>
+                  if err
+                    env.logger.debug "Error executing garagedoor open " + err
+                    reject()
+                  env.logger.info "Garagedoor opened"
+                  resolve()
+                )
+              else
+                env.logger.info "Garagedoor is already open"
+                resolve()
+            )
+          when "close"
+            @getGaragedoorStatus()
+            .then((garagedoorStatus)=>
+              if garagedoorStatus is true # = contact is opened -> door is open
+                @device.controlGarageDoor(1, 0, (err,resp)=>
+                  if err
+                    env.logger.debug "Error executing garagedoor close " + err
+                    reject()
+                  env.logger.info "Garagedoor closed"
+                  resolve()
+                )
+              else
+                env.logger.info "Garagedoor is already closed"
+                resolve()
+            )
+          else
+            env.logger.debug "Unknown command received: " + command
+            reject()
+      )
+
+
 
     destroy:() =>
-      if device?
+      if @device?
         @device.removeListener('data', @handleData)
       #@removeAllListeners()
       super()
@@ -365,9 +428,88 @@ module.exports = (env) ->
     getDeviceStatus: => Promise.resolve(@_deviceStatus)
 
 
+    execute: (device, command, options) =>
+      env.logger.debug "Execute command: #{command} with options: #{options}"
+      return new Promise((resolve, reject) =>
+        unless @deviceConnected and @device?
+          env.logger.info "Device '#{@name}' is offline"
+          return reject()
+        reject("Not imlemented")
+      )
+
+
     destroy:() =>
-      @device.removeListener('data', @handleData)
+      if @device?
+        @device.removeListener('data', @handleData)
       super()
+
+
+  class MerossActionProvider extends env.actions.ActionProvider
+
+    constructor: (@framework) ->
+
+    parseAction: (input, context) =>
+
+      merossDevice = null
+      merossDevices = _(@framework.deviceManager.devices).values().filter(
+        (device) => (device.config.class).indexOf("MerossGaragedoor")>= 0
+      ).value()
+      @options = []
+
+      setCommand = (command) =>
+        @command = command
+
+      m = M(input, context)
+        .match('meross ')
+        .matchDevice(merossDevices, (m, d) ->
+          # Already had a match with another device?
+          if merossDevice? and merossDevice.id isnt d.id
+            context?.addError(""""#{input.trim()}" is ambiguous.""")
+            return
+          merossDevice = d
+        )
+        .or([
+          ((m) =>
+            return m.match(' open', (m) =>
+              setCommand('open')
+              match = m.getFullMatch()
+            )
+          ),
+          ((m) =>
+            return m.match(' close', (m) =>
+              setCommand('close')
+              match = m.getFullMatch()
+            )
+           )
+        ])
+
+      match = m.getFullMatch()
+      if match? #m.hadMatch()
+        env.logger.debug "Rule matched: '", match, "' and passed to Action handler"
+        return {
+          token: match
+          nextInput: input.substring(match.length)
+          actionHandler: new MerossActionHandler(@framework, merossDevice, @command, @options)
+        }
+      else
+        return null
+
+
+  class MerossActionHandler extends env.actions.ActionHandler
+
+    constructor: (@framework, @merossDevice, @command, @options) ->
+
+    executeAction: (simulate) =>
+      if simulate
+        return __("would have cleaned \"%s\"", "")
+      else
+        @merossDevice.execute(@homeconnectDevice,@command, @options)
+        .then(()=>
+          return __("\"%s\" Rule executed", @command)
+        ).catch((err)=>
+          return __("\"%s\" Rule not executed", "")
+        )
+
 
 
   plugin = new MerossPlugin

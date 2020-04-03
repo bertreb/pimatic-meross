@@ -2,7 +2,7 @@ script#meross-garagedoor-template(type='text/template')
   li.sortable.button.no-header.meross-device
     label.device-label(data-bind="text: name, tooltip: $data.labelTooltipHtml")
     div.buttons.button-control.ui-controlgroup.ui-controlgroup-horizontal.ui-corner-all.ui-mini.no-carousel-slide(data-role='controlgroup', data-type='horizontal', data-mini='true', data-enhanced='true')
-        .ui-controlgroup-controls
-          a.ui-first-child.ui-btn.ui-corner-all.openButton(name='open button', data-bind='click: openGaragedoor') Open
-          a.ui-last-child.ui-btn.ui-corner-all.closeButton(name='close button', data-bind='click: closeGaragedoor') Close
+      .ui-controlgroup-controls
+        a.ui-first-child.ui-btn.ui-corner-all.openButton(name='open button', data-bind='click: onButtonPressed.bind($data,"open")') Open
+        a.ui-last-child.ui-btn.ui-corner-all.closeButton(name='close button', data-bind='click: onButtonPressed.bind($data,"close")') Close
     span.attributes(data-bind="template: { name: 'attribute-template', foreach: $data.device.attributes, afterRender: $data.afterAttributeRender }")
