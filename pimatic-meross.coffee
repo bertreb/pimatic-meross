@@ -356,7 +356,7 @@ module.exports = (env) ->
       @id = @config.id
       @name = @config.name
       #@_state = lastState?.state?.value
-      @_deviceStatus = lastState?.deviceStatus?.value
+      @_deviceStatus = lastState?.deviceStatus?.value or "offline"
       @deviceConnected = false
 
       if @_destroyed then return
