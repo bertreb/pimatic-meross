@@ -23,5 +23,6 @@
 	* added open/close command for garagedoor
 * 20200404, v0.1.2
 	* edit device-config for garagedoor buttons
-* 20200404, v0.1.3
+* 20200404, v0.1.4
 	* set initial state of smartplug
+	* edit logging

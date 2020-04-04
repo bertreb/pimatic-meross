@@ -381,12 +381,15 @@ module.exports = (env) ->
           @deviceConnected = true
           @device = @plugin.meross.getDevice(@id)
           @device.getSystemAbilities((err,abilities)=>
-            env.logger.info "Abilities " + JSON.stringify(abilities,null,2)
+            if err?
+              env.logger.debug "Handled error getSystemAbilities " + err
+            else
+              env.logger.debug "Abilities " + JSON.stringify(abilities,null,2)
           )
           @device.on 'data', @handleData
           @device.getOnlineStatus((err, res) =>
             if err?
-              env.logger.debug "error getOnlineStatus: " + err
+              env.logger.debug "Handled error getOnlineStatus: " + err
             else
               if Number res.online.status == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
               env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
@@ -413,12 +416,14 @@ module.exports = (env) ->
 
     changeStateTo: (state) =>
       if state
-        @device.controlToggleX(0,1, (res)=>
-          env.logger.info "Response " + res
+        @device.controlToggleX(0,1, (err)=>
+          if err?
+            env.logger.debug "Handled error controlToggleX on " + err
         )
       else
-        @device.controlToggleX(0,0, (res)=>
-          env.logger.info "Response " + res
+        @device.controlToggleX(0,0, (err)=>
+          if err?
+            env.logger.debug "Handled error controlToggleX off " + err
         )
 
 
