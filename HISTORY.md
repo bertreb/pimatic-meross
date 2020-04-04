@@ -21,3 +21,5 @@
 	* code cleanup
 * 20200403, v0.1.1
 	* added open/close command for garagedoor
+* 20200404, v0.1.2
+	* edit device-config for garagedoor buttons

@@ -125,7 +125,7 @@ module.exports = (env) ->
 
   class MerossGaragedoor extends env.devices.Device
 
-  
+
     template: "meross-garagedoor"
 
     actions:
@@ -140,7 +140,7 @@ module.exports = (env) ->
       #@config = config
       @id = @config.id
       @name = @config.name
-      
+
       @deviceId = @config.deviceId
 
       if @_destroyed then return
@@ -149,11 +149,12 @@ module.exports = (env) ->
       @_deviceStatus = lastState?.deviceStatus?.value or false
       @deviceConnected = false
 
+      ###
       @config.buttons=[
         { id : "open" , text : "open" },
         { id : "close" , text : "close" }
       ]
-      
+      ###
 
       @addAttribute 'deviceStatus',
         description: "Garagedoor status",
@@ -214,7 +215,7 @@ module.exports = (env) ->
           @deviceConnected = false
           @_setDeviceStatus(false)
           @device.removeListener('data', @handleData)
-      
+
       super()
 
     buttonPressed: (buttonId) =>
