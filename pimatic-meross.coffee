@@ -48,7 +48,7 @@ module.exports = (env) ->
 
         device.on 'reconnect', () =>
           env.logger.debug 'DEV: ' + deviceId + ' reconnected'
-          @emit 'deviceConnected', device.dev.uuid
+          @emit 'deviceReconnected', device.dev.uuid
 
         device.on 'rawSendData', (message) =>
           #env.logger.debug "Device Send raw: " + deviceId + ' data: ' + JSON.stringify(message)
@@ -180,6 +180,12 @@ module.exports = (env) ->
             @device.on 'data', @handleData
           else
             env.logger.info "Unknown device " + @id
+
+      @plugin.on 'deviceReconnected', (uuid) =>
+        if uuid is @id and @deviceConnected is false
+          @deviceConnected = true
+          @_setDeviceStatus(true)
+
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
@@ -375,6 +381,11 @@ module.exports = (env) ->
           env.logger.debug "deviceChanged " + device.id
           @device = @plugin.meross.getDevice(@id)
           @device.on 'data', @handleData
+
+      @plugin.on 'deviceReconnected', (uuid) =>
+        if uuid is @id and @deviceConnected is false
+          @deviceConnected = true
+          @_setDeviceStatus(true)
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false

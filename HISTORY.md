@@ -26,3 +26,5 @@
 * 20200404, v0.1.4
 	* set initial state of smartplug
 	* edit logging
+* 20200428, v0.1.5
+	* on reconnect change of program flow
