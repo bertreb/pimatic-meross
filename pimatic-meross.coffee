@@ -39,22 +39,22 @@ module.exports = (env) ->
           #)
 
         device.on 'close', (error) =>
-          env.logger.debug 'DEV: ' + deviceId + ' closed: ' + error
+          #env.logger.debug 'DEV: ' + deviceId + ' closed: ' + error
           @emit 'deviceDisonnected', device.dev.uuid
 
         device.on 'error', (error) =>
           env.logger.debug 'DEV: ' + deviceId + ' error: ' + error
           @emit 'deviceDisonnected', device.dev.uuid
 
-        device.on 'reconnect', () =>
-          env.logger.debug 'DEV: ' + deviceId + ' reconnected'
+        device.on 'reconnect', (recon) =>
+          env.logger.debug 'DEV: ' + deviceId + ' reconnected: ' + recon
           @emit 'deviceReconnected', device.dev.uuid
 
         device.on 'rawSendData', (message) =>
           #env.logger.debug "Device Send raw: " + deviceId + ' data: ' + JSON.stringify(message)
 
       @meross.on 'connected', (deviceId) =>
-        env.logger.debug deviceId + ' connected'
+        #env.logger.debug deviceId + ' connected'
 
       @meross.on 'close', (deviceId, error) =>
         env.logger.debug deviceId + ' closed: ' + error
@@ -63,7 +63,7 @@ module.exports = (env) ->
         env.logger.debug deviceId + ' error: ' + error
 
       @meross.on 'reconnect', (deviceId) =>
-        env.logger.debug deviceId + ' reconnected'
+        #env.logger.debug deviceId + ' reconnected'
 
       @meross.connect((error) =>
         if error
@@ -95,6 +95,7 @@ module.exports = (env) ->
 
       @supportedTypes = [
         {merossType: 'mss210', pimaticType: 'MerossSmartplug'},
+        {merossType: 'mss310', pimaticType: 'MerossSmartplug'},
         {merossType: 'msg100', pimaticType: 'MerossGaragedoor'}
       ]
       @framework.deviceManager.on('discover', (eventData) =>
@@ -182,6 +183,7 @@ module.exports = (env) ->
             env.logger.info "Unknown device " + @id
 
       @plugin.on 'deviceReconnected', (uuid) =>
+        return
         if uuid is @id and @deviceConnected is false
           @deviceConnected = true
           @_setDeviceStatus(true)
@@ -217,10 +219,12 @@ module.exports = (env) ->
               )
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
+        return
         if uuid is @id
           @deviceConnected = false
           @_setDeviceStatus(false)
-          @device.removeListener('data', @handleData)
+          if @device?
+            @device.removeListener('data', @handleData)
 
       super()
 
@@ -368,7 +372,7 @@ module.exports = (env) ->
       if @_destroyed then return
 
       @addAttribute 'deviceStatus',
-        description: "Garagedoor status",
+        description: "Smartplug status",
         type: "boolean"
         labels: ["online","offline"]
         acronym: "device"
@@ -409,7 +413,8 @@ module.exports = (env) ->
         if uuid is @id
           @deviceConnected = false
           @_setDeviceStatus(false)
-          @device.removeListener('data', @handleData)
+          if @device?
+            @device.removeListener('data', @handleData)
 
       super()
 
@@ -423,6 +428,8 @@ module.exports = (env) ->
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
           if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+          #when 'Appliance.Control.Electricity' # power, voltage, current
+          #when 'Appliance.Control.ConsumptionX' # historical power consumption
 
 
     changeStateTo: (state) =>
@@ -451,7 +458,7 @@ module.exports = (env) ->
         unless @deviceConnected and @device?
           env.logger.info "Device '#{@name}' is offline"
           return reject()
-        reject("Not imlemented")
+        reject("Not implemented")
       )
 
 

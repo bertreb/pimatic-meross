@@ -28,3 +28,5 @@
 	* edit logging
 * 20200428, v0.1.5
 	* on reconnect change of program flow
+* 20200826, v0.1.6
+	* added support for mss310
