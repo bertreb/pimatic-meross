@@ -80,6 +80,12 @@ module.exports = (env) ->
         configDef: deviceConfigDef.MerossSmartplug,
         createCallback: (config, lastState) => new MerossSmartplug(config, lastState, @framework, @)
       })
+      ###
+      @framework.deviceManager.registerDeviceClass('MerossSmartplugEnergy', {
+        configDef: deviceConfigDef.MerossSmartplugEnergy,
+        createCallback: (config, lastState) => new MerossSmartplugEnergy(config, lastState, @framework, @)
+      })
+      ###
 
       @framework.ruleManager.addActionProvider(new MerossActionProvider(@framework))
 
@@ -183,7 +189,6 @@ module.exports = (env) ->
             env.logger.info "Unknown device " + @id
 
       @plugin.on 'deviceReconnected', (uuid) =>
-        return
         if uuid is @id and @deviceConnected is false
           @deviceConnected = true
           @_setDeviceStatus(true)
@@ -219,7 +224,6 @@ module.exports = (env) ->
               )
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
-        return
         if uuid is @id
           @deviceConnected = false
           @_setDeviceStatus(false)
@@ -466,6 +470,159 @@ module.exports = (env) ->
       if @device?
         @device.removeListener('data', @handleData)
       super()
+
+  class MerossSmartplugEnergy extends env.devices.SwitchActuator
+
+    constructor: (@config, lastState, @framework, @plugin) ->
+      #@config = config
+      @id = @config.id
+      @name = @config.name
+      #@_state = lastState?.state?.value
+      @_deviceStatus = lastState?.deviceStatus?.value or "offline"
+      @_voltage = lastState?.voltage?.value or 0
+      @_current = lastState?.current?.value or 0
+      @_power = lastState?.power?.value or 0
+      @_powerConsumption = lastState?.powerConsumption?.value or 0
+      @deviceConnected = false
+
+      @pollElectricityTime = @config.polling ? 5 # 5 seconds
+
+      if @_destroyed then return
+
+      @addAttribute 'deviceStatus',
+        description: "Smartplug status",
+        type: "boolean"
+        labels: ["online","offline"]
+        acronym: "Device Status"
+      @addAttribute 'current',
+        description: "Current",
+        type: "number"
+        unit: "A",
+        acronym: "current"
+      @addAttribute 'voltage',
+        description: "Voltage",
+        type: "number",
+        unit: "V",
+        acronym: "Voltage"
+      @addAttribute 'power',
+        description: "Power",
+        type: "number"
+        unit: "W",
+        acronym: "Power"
+      @addAttribute 'powerConsumption',
+        description: "Power Consumption",
+        type: "number"
+        unit: "Wh",
+        acronym: "Power Consumption"
+
+      @_setDeviceStatus(@_deviceStatus)
+
+      @framework.on 'deviceChanged', (device) =>
+        if @_destroyed then return
+        if device.id is @id
+          env.logger.debug "deviceChanged " + device.id
+          @device = @plugin.meross.getDevice(@id)
+          @device.on 'data', @handleData
+
+      @plugin.on 'deviceReconnected', (uuid) =>
+        if uuid is @id and @deviceConnected is false
+          @deviceConnected = true
+          @_setDeviceStatus(true)
+
+      @plugin.on 'deviceConnected', (uuid) =>
+        if uuid is @id and @deviceConnected is false
+          @deviceConnected = true
+          @device = @plugin.meross.getDevice(@id)
+          @device.getSystemAbilities((err,abilities)=>
+            if err?
+              env.logger.debug "Handled error getSystemAbilities " + err
+            else
+              env.logger.debug "Abilities " + JSON.stringify(abilities,null,2)
+          )
+          @device.on 'data', @handleData
+          @device.getOnlineStatus((err, res) =>
+            if err?
+              env.logger.debug "Handled error getOnlineStatus: " + err
+            else
+              if Number res.online.status == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
+          )
+      @plugin.on 'deviceDisonnected', (uuid) =>
+        if uuid is @id
+          @deviceConnected = false
+          @_setDeviceStatus(false)
+          if @device?
+            @device.removeListener('data', @handleData)
+
+      @pollElectricity = () =>
+        @device.getControlElectricity((err,resp)=>
+          if err?
+            env.logger.debug "Handled error getControlElectricity: " + err
+          else
+            env.logger.debug 'getControlElectricity response: ' + JSON.stringify(resp,null,2)
+        )
+        @pollElectricityTimer = setTimeout(@pollElectricity, @pollElectricityTime)
+
+      super()
+
+
+    handleData: (namespace, payload) =>
+      env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
+      switch namespace
+        when 'Appliance.Control.ToggleX'
+          @_setState(Boolean(payload.togglex[0].onoff))
+        when 'Appliance.Control.Toggle'
+          @_setState(Boolean(payload.toggle[0].onoff))
+        when 'Appliance.System.Online'
+          if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+        when 'Appliance.Control.Electricity' # power, voltage, current
+          @_voltage = payload.electricity.voltage
+          @_current = payload.electricity.current
+          @_power = payload.electricity.power
+          @emit 'voltage', @_voltage
+          @emit 'current', @_current
+          @emit 'power', @_power
+        when 'Appliance.Control.ConsumptionX' # historical power consumption
+          @_powerConsumption = payload.consumption
+          @emit 'powerConsumption', @_powerConsumption
+
+
+    changeStateTo: (state) =>
+      if state
+        @device.controlToggleX(0,1, (err)=>
+          if err?
+            env.logger.debug "Handled error controlToggleX on " + err
+        )
+      else
+        @device.controlToggleX(0,0, (err)=>
+          if err?
+            env.logger.debug "Handled error controlToggleX off " + err
+        )
+
+
+    _setDeviceStatus: (value) =>
+      @_deviceStatus = value
+      @emit 'deviceStatus', @_deviceStatus
+
+    getDeviceStatus: => Promise.resolve(@_deviceStatus)
+
+
+    execute: (device, command, options) =>
+      env.logger.debug "Execute command: #{command} with options: #{options}"
+      return new Promise((resolve, reject) =>
+        unless @deviceConnected and @device?
+          env.logger.info "Device '#{@name}' is offline"
+          return reject()
+        reject("Not implemented")
+      )
+
+
+    destroy:() =>
+      if @device?
+        @device.removeListener('data', @handleData)
+      clearTimeout(@pollElectricityTimer)
+      super()
+
 
 
   class MerossActionProvider extends env.actions.ActionProvider

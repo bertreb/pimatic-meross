@@ -23,7 +23,7 @@
     "garagedoor",
     "smartplug"
   ],
-  "version": "0.1.6",
+  "version": "0.1.7",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bertreb/pimatic-meross.git"
@@ -31,9 +31,7 @@
   "configSchema": "pimatic-meross-config-schema.coffee",
   "dependencies": {
     "lodash": "^4.17.15",
-    "meross-cloud": "^1.3.5",
-    "mqtt": "^4.2.1",
-    "paho.mqtt.js": "^2.0.5"
+    "meross-cloud": "^1.3.5"
   },
   "peerDependencies": {
     "pimatic": "0.9.*"
