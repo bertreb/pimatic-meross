@@ -31,7 +31,8 @@
   "configSchema": "pimatic-meross-config-schema.coffee",
   "dependencies": {
     "lodash": "^4.17.15",
-    "meross-cloud": "^1.3.5"
+    "meross-cloud": "^1.3.5",
+    "duplexify": "^4.1.1"
   },
   "peerDependencies": {
     "pimatic": "0.9.*"
