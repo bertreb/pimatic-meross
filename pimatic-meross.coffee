@@ -438,19 +438,27 @@ module.exports = (env) ->
           if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
           #when 'Appliance.Control.Electricity' # power, voltage, current
           #when 'Appliance.Control.ConsumptionX' # historical power consumption
+      @device.getOnlineStatus((err, res) =>
+        if err?
+          env.logger.debug "Handled error getOnlineStatus: " + err
+        else
+          if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+          env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
+      )
 
 
     changeStateTo: (state) =>
-      if state
-        @device.controlToggleX(0,1, (err)=>
-          if err?
-            env.logger.debug "Handled error controlToggleX on " + err
-        )
-      else
-        @device.controlToggleX(0,0, (err)=>
-          if err?
-            env.logger.debug "Handled error controlToggleX off " + err
-        )
+      if @deviceConnected and @device?
+        if state
+          @device.controlToggleX(0,1, (err)=>
+            if err?
+              env.logger.debug "Handled error controlToggleX on " + err
+          )
+        else
+          @device.controlToggleX(0,0, (err)=>
+            if err?
+              env.logger.debug "Handled error controlToggleX off " + err
+          )
 
 
     _setDeviceStatus: (value) =>
@@ -620,19 +628,28 @@ module.exports = (env) ->
           #when 'Appliance.Control.ConsumptionX' # historical power consumption
           #@_powerConsumption = payload.consumption
           #@emit 'powerConsumption', @_powerConsumption
+      @device.getOnlineStatus((err, res) =>
+        if err?
+          env.logger.debug "Handled error getOnlineStatus: " + err
+        else
+          if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+          env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
+      )
+
 
 
     changeStateTo: (state) =>
-      if state
-        @device.controlToggleX(0,1, (err)=>
-          if err?
-            env.logger.debug "Handled error controlToggleX on " + err
-        )
-      else
-        @device.controlToggleX(0,0, (err)=>
-          if err?
-            env.logger.debug "Handled error controlToggleX off " + err
-        )
+      if @deviceConnected and @device?
+        if state
+          @device.controlToggleX(0,1, (err)=>
+            if err?
+              env.logger.debug "Handled error controlToggleX on " + err
+          )
+        else
+          @device.controlToggleX(0,0, (err)=>
+            if err?
+              env.logger.debug "Handled error controlToggleX off " + err
+          )
 
 
     _setDeviceStatus: (value) =>
