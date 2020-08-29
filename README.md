@@ -59,8 +59,8 @@ The following variables (attributes) are available in the gui / pimatic.
 ```
 <deviceId>.deviceStatus:  "If the device is online or offline"
 <deviceId>.state:         "Actual state of the Smartplug switch (on or off)"
-<deviceId>.voltage:         "Actual voltage of the Smartplug"
-<deviceId>.current:         "Actual current usage of the Smartplug"
+<deviceId>.voltage:       "Actual voltage of the Smartplug"
+<deviceId>.current:       "Actual current usage of the Smartplug"
 <deviceId>.power:         "Actual power of the the Smartplug"
 <deviceId>.consumption:   "The (daily) power consumption of the Smartplug"
 ```
