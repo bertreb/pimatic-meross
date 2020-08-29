@@ -290,7 +290,7 @@ module.exports = (env) ->
               env.logger.debug "Garagedoor state changed to " + (if newState then "open" else "closed")
             )
           when 'Appliance.System.Online'
-            if payload.online.status == "1" then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+            if (Number payload.online.status) == "1" then @_setDeviceStatus(true) else @_setDeviceStatus(false)
       catch err
         env.logger.debug "error handleData handled: " + err
 
@@ -393,7 +393,7 @@ module.exports = (env) ->
           @deviceConnected = true
           @device.getOnlineStatus((err, res) =>
             if err?
-              env.logger.debug "Handled error getOnlineStatus: " + err
+              env.logger.debug "Handled err getOnlineStatus: " + err
             else
               if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
               env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
@@ -405,7 +405,7 @@ module.exports = (env) ->
           @device = @plugin.meross.getDevice(@id)
           @device.getSystemAbilities((err,abilities)=>
             if err?
-              env.logger.debug "Handled error getSystemAbilities " + err
+              env.logger.debug "Handled err getSystemAbilities " + err
             else
               env.logger.debug "Abilities " + JSON.stringify(abilities,null,2)
           )
@@ -435,16 +435,12 @@ module.exports = (env) ->
         when 'Appliance.Control.Toggle'
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
-          if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-          #when 'Appliance.Control.Electricity' # power, voltage, current
-          #when 'Appliance.Control.ConsumptionX' # historical power consumption
-      @device.getOnlineStatus((err, res) =>
-        if err?
-          env.logger.debug "Handled error getOnlineStatus: " + err
-        else
-          if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-          env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
-      )
+          if (Number payload.online.status) == 1
+            @deviceConnected = true
+            @_setDeviceStatus(true) 
+          else 
+            @deviceConnected = false
+            @_setDeviceStatus(false)
 
 
     changeStateTo: (state) =>
@@ -558,7 +554,7 @@ module.exports = (env) ->
             else
               env.logger.debug "Abilities " + JSON.stringify(abilities,null,2)
           )
-          @device.on 'data', @handleData
+          @device.on 'data', @handleData   
           @device.getOnlineStatus((err, res) =>
             if err?
               env.logger.debug "Handled error getOnlineStatus: " + err
@@ -575,12 +571,12 @@ module.exports = (env) ->
             @device.removeListener('data', @handleData)
 
       @pollElectricity = () =>
-        if @device?
+        if @device? and @deviceConnected
           @device.getControlElectricity((err,resp)=>
             if err?
               env.logger.debug "Handled error getControlElectricity: " + err
             else
-              env.logger.debug 'getControlElectricity response: ' + JSON.stringify(resp,null,2)
+              #env.logger.debug 'getControlElectricity response: ' + JSON.stringify(resp,null,2)
               @_voltage = resp.electricity.voltage / 10
               @_current = resp.electricity.current / 1000
               @_power = resp.electricity.power / 1000
@@ -592,19 +588,17 @@ module.exports = (env) ->
       @pollElectricity()
       
       @pollConsumption = () =>
-        if @device?
+        if @device? and @deviceConnected
           @device.getControlPowerConsumptionX((err,resp)=>
             if err?
               env.logger.debug "Handled error getControlPowerConsumptionX: " + err
             else
-              env.logger.debug 'getControlPowerConsumptionX response: ' + JSON.stringify(resp,null,2)
+              #env.logger.debug 'getControlPowerConsumptionX response: ' + JSON.stringify(resp,null,2)
               @_powerConsumption = resp.consumptionx[0].value
               @emit 'powerConsumption', @_powerConsumption
           )
         @pollConsumptionTimer = setTimeout(@pollConsumption, @pollConsumptionTime*1000)
       @pollConsumption()
-
-
 
       super()
 
@@ -617,7 +611,12 @@ module.exports = (env) ->
         when 'Appliance.Control.Toggle'
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
-          if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+          if (Number payload.online.status) == 1 
+            @deviceConnected = true
+            @_setDeviceStatus(true) 
+          else 
+            @deviceConnected = false
+            @_setDeviceStatus(false)
         when 'Appliance.Control.Electricity' # power, voltage, current
           @_voltage = payload.electricity.voltage / 10
           @_current = payload.electricity.current / 1000
@@ -625,18 +624,6 @@ module.exports = (env) ->
           @emit 'voltage', @_voltage
           @emit 'current', @_current
           @emit 'power', @_power
-          #when 'Appliance.Control.ConsumptionX' # historical power consumption
-          #@_powerConsumption = payload.consumption
-          #@emit 'powerConsumption', @_powerConsumption
-      @device.getOnlineStatus((err, res) =>
-        if err?
-          env.logger.debug "Handled error getOnlineStatus: " + err
-        else
-          if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-          env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
-      )
-
-
 
     changeStateTo: (state) =>
       if @deviceConnected and @device?

@@ -30,5 +30,5 @@
 	* on reconnect change of program flow
 * 20200826, v0.1.6
 	* added support for mss310
-* 20200829, v0.2.1
+* 20200829, v0.2.2
 	* added support for mss310 electricity and consumption
