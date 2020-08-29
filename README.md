@@ -1,7 +1,7 @@
 # pimatic-meross
 Pimatic plugin for support of Meross devices
 
-This plugin lets you control and get status info from a Meross devices. This version of the plugin supports the SmartPlug (mss210) and the Garagedoor Opener (msg100).
+This plugin lets you control and get status info from a Meross devices. This version of the plugin supports the SmartPlug (mss210), SmartPlug with electricity reading (mss310) and the Garagedoor Opener (msg100).
 
 After downloading the Meross app, you can register in the app with your email and password.
 After registration you can add your meross device(s) in the app, configure the wifi and other settings.
@@ -53,6 +53,18 @@ The following variables (attributes) are available in the gui / pimatic.
 ```
 The smartplug is switched on or off via the gui, rules or the api. If the button on the smartplug is toggled (swithed on or off) the switch in pimatic will also toggle.
 
+### Smartplug (mss310)
+The following variables (attributes) are available in the gui / pimatic.
+
+```
+<deviceId>.deviceStatus:  "If the device is online or offline"
+<deviceId>.state:         "Actual state of the Smartplug switch (on or off)"
+<deviceId>.voltage:         "Actual voltage of the Smartplug"
+<deviceId>.current:         "Actual current usage of the Smartplug"
+<deviceId>.power:         "Actual power of the the Smartplug"
+<deviceId>.consumption:   "The (daily) power consumption of the Smartplug"
+```
+The smartplug is switched on or off via the gui, rules or the api. If the button on the smartplug is toggled (swithed on or off) the switch in pimatic will also toggle.
 
 ---
 

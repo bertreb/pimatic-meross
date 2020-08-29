@@ -80,12 +80,10 @@ module.exports = (env) ->
         configDef: deviceConfigDef.MerossSmartplug,
         createCallback: (config, lastState) => new MerossSmartplug(config, lastState, @framework, @)
       })
-      ###
       @framework.deviceManager.registerDeviceClass('MerossSmartplugEnergy', {
         configDef: deviceConfigDef.MerossSmartplugEnergy,
         createCallback: (config, lastState) => new MerossSmartplugEnergy(config, lastState, @framework, @)
       })
-      ###
 
       @framework.ruleManager.addActionProvider(new MerossActionProvider(@framework))
 
@@ -101,7 +99,7 @@ module.exports = (env) ->
 
       @supportedTypes = [
         {merossType: 'mss210', pimaticType: 'MerossSmartplug'},
-        {merossType: 'mss310', pimaticType: 'MerossSmartplug'},
+        {merossType: 'mss310', pimaticType: 'MerossSmartplugEnergy'},
         {merossType: 'msg100', pimaticType: 'MerossGaragedoor'}
       ]
       @framework.deviceManager.on('discover', (eventData) =>
@@ -376,10 +374,10 @@ module.exports = (env) ->
       if @_destroyed then return
 
       @addAttribute 'deviceStatus',
-        description: "Smartplug status",
+        description: "device",
         type: "boolean"
         labels: ["online","offline"]
-        acronym: "device"
+        acronym: "Status"
 
       @_setDeviceStatus(@_deviceStatus)
 
@@ -393,7 +391,13 @@ module.exports = (env) ->
       @plugin.on 'deviceReconnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
           @deviceConnected = true
-          @_setDeviceStatus(true)
+          @device.getOnlineStatus((err, res) =>
+            if err?
+              env.logger.debug "Handled error getOnlineStatus: " + err
+            else
+              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
+          )
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
@@ -410,7 +414,7 @@ module.exports = (env) ->
             if err?
               env.logger.debug "Handled error getOnlineStatus: " + err
             else
-              if Number res.online.status == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
               env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
@@ -477,7 +481,7 @@ module.exports = (env) ->
       #@config = config
       @id = @config.id
       @name = @config.name
-      #@_state = lastState?.state?.value
+      @_state = lastState?.state?.value
       @_deviceStatus = lastState?.deviceStatus?.value or "offline"
       @_voltage = lastState?.voltage?.value or 0
       @_current = lastState?.current?.value or 0
@@ -485,7 +489,8 @@ module.exports = (env) ->
       @_powerConsumption = lastState?.powerConsumption?.value or 0
       @deviceConnected = false
 
-      @pollElectricityTime = @config.polling ? 5 # 5 seconds
+      @pollElectricityTime = @config.polltimeElectricity ? 5 # seconds
+      @pollConsumptionTime = @config.polltimeConsumption ? 86400 # 1 day is 86400 seconds
 
       if @_destroyed then return
 
@@ -493,7 +498,7 @@ module.exports = (env) ->
         description: "Smartplug status",
         type: "boolean"
         labels: ["online","offline"]
-        acronym: "Device Status"
+        acronym: "device"
       @addAttribute 'current',
         description: "Current",
         type: "number"
@@ -503,17 +508,17 @@ module.exports = (env) ->
         description: "Voltage",
         type: "number",
         unit: "V",
-        acronym: "Voltage"
+        acronym: "voltage"
       @addAttribute 'power',
         description: "Power",
         type: "number"
         unit: "W",
-        acronym: "Power"
+        acronym: "power"
       @addAttribute 'powerConsumption',
         description: "Power Consumption",
         type: "number"
         unit: "Wh",
-        acronym: "Power Consumption"
+        acronym: "consumption"
 
       @_setDeviceStatus(@_deviceStatus)
 
@@ -527,7 +532,13 @@ module.exports = (env) ->
       @plugin.on 'deviceReconnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
           @deviceConnected = true
-          @_setDeviceStatus(true)
+          @device.getOnlineStatus((err, res) =>
+            if err?
+              env.logger.debug "Handled error getOnlineStatus: " + err
+            else
+              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
+          )
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
@@ -544,9 +555,10 @@ module.exports = (env) ->
             if err?
               env.logger.debug "Handled error getOnlineStatus: " + err
             else
-              if Number res.online.status == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
               env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
           )
+
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           @deviceConnected = false
@@ -555,13 +567,36 @@ module.exports = (env) ->
             @device.removeListener('data', @handleData)
 
       @pollElectricity = () =>
-        @device.getControlElectricity((err,resp)=>
-          if err?
-            env.logger.debug "Handled error getControlElectricity: " + err
-          else
-            env.logger.debug 'getControlElectricity response: ' + JSON.stringify(resp,null,2)
-        )
-        @pollElectricityTimer = setTimeout(@pollElectricity, @pollElectricityTime)
+        if @device?
+          @device.getControlElectricity((err,resp)=>
+            if err?
+              env.logger.debug "Handled error getControlElectricity: " + err
+            else
+              env.logger.debug 'getControlElectricity response: ' + JSON.stringify(resp,null,2)
+              @_voltage = resp.electricity.voltage / 10
+              @_current = resp.electricity.current / 1000
+              @_power = resp.electricity.power / 1000
+              @emit 'voltage', @_voltage
+              @emit 'current', @_current
+              @emit 'power', @_power
+          )
+        @pollElectricityTimer = setTimeout(@pollElectricity, @pollElectricityTime*1000)
+      @pollElectricity()
+      
+      @pollConsumption = () =>
+        if @device?
+          @device.getControlPowerConsumptionX((err,resp)=>
+            if err?
+              env.logger.debug "Handled error getControlPowerConsumptionX: " + err
+            else
+              env.logger.debug 'getControlPowerConsumptionX response: ' + JSON.stringify(resp,null,2)
+              @_powerConsumption = resp.consumptionx[0].value
+              @emit 'powerConsumption', @_powerConsumption
+          )
+        @pollConsumptionTimer = setTimeout(@pollConsumption, @pollConsumptionTime*1000)
+      @pollConsumption()
+
+
 
       super()
 
@@ -576,15 +611,15 @@ module.exports = (env) ->
         when 'Appliance.System.Online'
           if (payload.online.status).indexOf('1')>=0 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
         when 'Appliance.Control.Electricity' # power, voltage, current
-          @_voltage = payload.electricity.voltage
-          @_current = payload.electricity.current
-          @_power = payload.electricity.power
+          @_voltage = payload.electricity.voltage / 10
+          @_current = payload.electricity.current / 1000
+          @_power = payload.electricity.power / 1000
           @emit 'voltage', @_voltage
           @emit 'current', @_current
           @emit 'power', @_power
-        when 'Appliance.Control.ConsumptionX' # historical power consumption
-          @_powerConsumption = payload.consumption
-          @emit 'powerConsumption', @_powerConsumption
+          #when 'Appliance.Control.ConsumptionX' # historical power consumption
+          #@_powerConsumption = payload.consumption
+          #@emit 'powerConsumption', @_powerConsumption
 
 
     changeStateTo: (state) =>
@@ -605,7 +640,10 @@ module.exports = (env) ->
       @emit 'deviceStatus', @_deviceStatus
 
     getDeviceStatus: => Promise.resolve(@_deviceStatus)
-
+    getCurrent: => Promise.resolve(@_current)
+    getVoltage: => Promise.resolve(@_voltage)
+    getPower: => Promise.resolve(@_power)
+    getPowerConsumption: => Promise.resolve(@_powerConsumption)
 
     execute: (device, command, options) =>
       env.logger.debug "Execute command: #{command} with options: #{options}"
@@ -621,6 +659,7 @@ module.exports = (env) ->
       if @device?
         @device.removeListener('data', @handleData)
       clearTimeout(@pollElectricityTimer)
+      clearTimeout(@pollConsumptionTimer)
       super()
 
 
