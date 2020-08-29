@@ -53,7 +53,7 @@ The following variables (attributes) are available in the gui / pimatic.
 ```
 The smartplug is switched on or off via the gui, rules or the api. If the button on the smartplug is toggled (swithed on or off) the switch in pimatic will also toggle.
 
-### Smartplug (mss310)
+### Smartplug with electricity readings (mss310)
 The following variables (attributes) are available in the gui / pimatic.
 
 ```
