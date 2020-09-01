@@ -32,3 +32,5 @@
 	* added support for mss310
 * 20200829, v0.2.2
 	* added support for mss310 electricity and consumption
+* 20200901, v0.2.3
+	* improved debug info if offline

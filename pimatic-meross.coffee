@@ -546,7 +546,7 @@ module.exports = (env) ->
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
-          @deviceConnected = true
+          #@deviceConnected = true
           @device = @plugin.meross.getDevice(@id)
           @device.getSystemAbilities((err,abilities)=>
             if err?
@@ -571,7 +571,7 @@ module.exports = (env) ->
             @device.removeListener('data', @handleData)
 
       @pollElectricity = () =>
-        if @device? and @deviceConnected
+        if @device? and (@deviceConnected is true)
           @device.getControlElectricity((err,resp)=>
             if err?
               env.logger.debug "Handled error getControlElectricity: " + err
@@ -588,7 +588,7 @@ module.exports = (env) ->
       @pollElectricity()
       
       @pollConsumption = () =>
-        if @device? and @deviceConnected
+        if @device? and (@deviceConnected is true)
           @device.getControlPowerConsumptionX((err,resp)=>
             if err?
               env.logger.debug "Handled error getControlPowerConsumptionX: " + err
