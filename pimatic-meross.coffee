@@ -206,20 +206,20 @@ module.exports = (env) ->
             #set initial state
             if allData?.all?.digest?.garageDoor?.open
                 newState = Boolean(allData.all.digest.garageDoor.open)
+            else
+              newState = false # contact is closed = garagedoor closed
+            @_setGaragedoorStatus(newState)
+            .then(()=>
+              @device.on 'data', @handleData
+              if allData?.all?.system?.online?.status
+                newOnlineState = Boolean(allData.all.system.online.status)
+                if newOnlineState
+                  @deviceConnected = true
               else
-                newState = false # contact is closed = garagedoor closed
-              @_setGaragedoorStatus(newState)
-              .then(()=>
-                @device.on 'data', @handleData
-                if allData?.all?.system?.online?.status
-                  newOnlineState = Boolean(allData.all.system.online.status)
-                  if newOnlineState
-                    @deviceConnected = true
-                else
-                  newOnlineState = false
-                @_setDeviceStatus(newOnlineState)
-                env.logger.debug 'Online status: ' + newOnlineState
-              )
+                newOnlineState = false
+              @_setDeviceStatus(newOnlineState)
+              env.logger.debug 'Online status: ' + newOnlineState
+            )
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
