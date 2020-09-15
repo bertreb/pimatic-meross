@@ -34,5 +34,7 @@
 	* added support for mss310 electricity and consumption
 * 20200901, v0.2.3
 	* improved debug info if offline
-* 20200914, v0.2.4
-	* edit garagedoor handler
+	* 20200914, v0.2.4
+		* edit garagedoor handler
+* 20200915, v0.2.5
+	* edit reconnect

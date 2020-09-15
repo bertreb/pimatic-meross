@@ -28,15 +28,10 @@ module.exports = (env) ->
         @merossDevices[deviceId] = device
         @connected = true
         env.logger.info "Nr of devices: " + _.size(@merossDevices)
+        
         device.on 'connected', () =>
           env.logger.debug 'DEV: ' + deviceId + ' connected'
           @emit 'deviceConnected', device.dev.uuid
-          #device.getSystemAbilities((err, res) =>
-          #    #env.logger.debug 'Abilities: ' + JSON.stringify(res,null,2)
-          #    device.getSystemAllData((err, res) =>
-          #      env.logger.debug 'All-Data: ' # + JSON.stringify(res,null,2)
-          #    )
-          #)
 
         device.on 'close', (error) =>
           #env.logger.debug 'DEV: ' + deviceId + ' closed: ' + error
@@ -188,8 +183,33 @@ module.exports = (env) ->
 
       @plugin.on 'deviceReconnected', (uuid) =>
         if uuid is @id and @deviceConnected is false
-          @deviceConnected = true
-          @_setDeviceStatus(true)
+          @device = @plugin.meross.getDevice(@id)
+          unless @device?
+            env.logger.debug "Device '#{@name}' does not exsist"
+            return
+          @device.getSystemAllData((err,allData)=>
+            if err
+              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+              return
+            env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
+            #set initial state
+            if allData?.all?.digest?.garageDoor?.open
+                newState = Boolean(allData.all.digest.garageDoor.open)
+            else
+              newState = false # contact is closed = garagedoor closed
+            @_setGaragedoorStatus(newState)
+            .then(()=>
+              @device.on 'data', @handleData
+              if allData?.all?.system?.online?.status
+                newOnlineState = Boolean(allData.all.system.online.status)
+                if newOnlineState
+                  @deviceConnected = true
+              else
+                newOnlineState = false
+              @_setDeviceStatus(newOnlineState)
+              env.logger.debug 'Online status: ' + newOnlineState
+            )
+          )
 
 
       @plugin.on 'deviceConnected', (uuid) =>
