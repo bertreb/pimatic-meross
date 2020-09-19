@@ -38,3 +38,5 @@
 		* edit garagedoor handler
 * 20200915, v0.2.5
 	* edit reconnect
+* 20200919, v0.2.6
+	* changed msg100 device status handling

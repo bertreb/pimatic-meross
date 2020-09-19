@@ -145,17 +145,6 @@ module.exports = (env) ->
 
       if @_destroyed then return
 
-      @_garagedoorStatus = lastState?.garagedoorStatus?.value or false
-      @_deviceStatus = lastState?.deviceStatus?.value or false
-      @deviceConnected = false
-
-      ###
-      @config.buttons=[
-        { id : "open" , text : "open" },
-        { id : "close" , text : "close" }
-      ]
-      ###
-
       @addAttribute 'deviceStatus',
         description: "Garagedoor status",
         type: "boolean"
@@ -168,21 +157,55 @@ module.exports = (env) ->
         labels: ["open","closed"]
         acronym: "garagedoor"
 
-      @_setDeviceStatus(@_deviceStatus)
 
+      @_garagedoorStatus = lastState?.garagedoorStatus?.value or false
+      @_deviceStatus = lastState?.deviceStatus?.value or false
+      #@deviceConnected = @_deviceStatus
 
-      @framework.on 'deviceChanged', (device) =>
-        if @_destroyed then return
-        if device.id is @id
-          env.logger.debug "deviceChanged " + device.id
-          @device = @plugin.meross.getDevice(@id)
-          if @device?
-            @device.on 'data', @handleData
-          else
-            env.logger.info "Unknown device " + @id
+      ###
+      @config.buttons=[
+        { id : "open" , text : "open" },
+        { id : "close" , text : "close" }
+      ]
+      ###
+
+      @framework.variableManager.waitForInit()
+      .then(
+        @device = @plugin.meross.getDevice(@id)
+        unless @device?
+          env.logger.debug "Device '#{@name}' does not exsist"
+        else
+          @device.getSystemAllData((err,allData)=>
+            if err
+              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+              return
+            env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
+            #set initial state
+            if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
+              newState = true #Boolean(allData.all.digest.garageDoor.open)
+            else
+              newState = false # contact is closed = garagedoor closed
+            @_setGaragedoorStatus(newState)
+            .then(()=>
+              @device.on 'data', @handleData
+              if allData?.all?.system?.online?.status?
+                if Boolean(allData?.all?.system?.online?.status) is true
+                  newOnlineState = true
+                if Boolean(allData?.all?.system?.online?.status) is false
+                  newOnlineState = false
+                #@_deviceStatus = newOnlineState
+                @_setDeviceStatus(newOnlineState)
+                env.logger.debug 'Online status: ' + newOnlineState
+            )
+          )
+
+      )
+
+      #env.logger.info "@_deviceStatus: " + @_deviceStatus
+      #@_setDeviceStatus(@_deviceStatus)
 
       @plugin.on 'deviceReconnected', (uuid) =>
-        if uuid is @id and @deviceConnected is false
+        if uuid is @id and @_deviceStatus is false
           @device = @plugin.meross.getDevice(@id)
           unless @device?
             env.logger.debug "Device '#{@name}' does not exsist"
@@ -193,27 +216,27 @@ module.exports = (env) ->
               return
             env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
             #set initial state
-            if allData?.all?.digest?.garageDoor?.open
-                newState = Boolean(allData.all.digest.garageDoor.open)
+            if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
+              newState = true # Boolean(allData.all.digest.garageDoor.open)
             else
               newState = false # contact is closed = garagedoor closed
             @_setGaragedoorStatus(newState)
             .then(()=>
               @device.on 'data', @handleData
-              if allData?.all?.system?.online?.status
-                newOnlineState = Boolean(allData.all.system.online.status)
-                if newOnlineState
-                  @deviceConnected = true
-              else
-                newOnlineState = false
-              @_setDeviceStatus(newOnlineState)
-              env.logger.debug 'Online status: ' + newOnlineState
+              if allData?.all?.system?.online?.status?
+                if Boolean(allData?.all?.system?.online?.status) is true
+                  newOnlineState = true
+                if Boolean(allData?.all?.system?.online?.status) is false
+                  newOnlineState = false
+                #@_deviceStatus = newOnlineState
+                @_setDeviceStatus(newOnlineState)
+                env.logger.debug 'Online status: ' + newOnlineState
             )
           )
 
 
       @plugin.on 'deviceConnected', (uuid) =>
-        if uuid is @id and @deviceConnected is false
+        if uuid is @id and @_deviceStatus is false
           @device = @plugin.meross.getDevice(@id)
           unless @device?
             env.logger.debug "Device '#{@name}' does not exsist"
@@ -224,26 +247,27 @@ module.exports = (env) ->
               return
             env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
             #set initial state
-            if allData?.all?.digest?.garageDoor?.open
-                newState = Boolean(allData.all.digest.garageDoor.open)
+            #env.logger.debug "Initial open/close status: " + allData?.all?.digest?.garageDoor[0]?.open
+            if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
+              newState = true # Boolean(allData.all.digest.garageDoor.open)
             else
               newState = false # contact is closed = garagedoor closed
             @_setGaragedoorStatus(newState)
             .then(()=>
               @device.on 'data', @handleData
-              if allData?.all?.system?.online?.status
-                newOnlineState = Boolean(allData.all.system.online.status)
-                if newOnlineState
-                  @deviceConnected = true
-              else
-                newOnlineState = false
-              @_setDeviceStatus(newOnlineState)
-              env.logger.debug 'Online status: ' + newOnlineState
+              if allData?.all?.system?.online?.status?
+                if Boolean(allData?.all?.system?.online?.status)
+                  newOnlineState = true
+                else
+                  newOnlineState = false
+                #@deviceConnected = newOnlineState
+                @_setDeviceStatus(newOnlineState)
+                env.logger.debug 'Online status: ' + newOnlineState
             )
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
-          @deviceConnected = false
+          #@deviceConnected = false
           @_setDeviceStatus(false)
           if @device?
             @device.removeListener('data', @handleData)
@@ -262,7 +286,7 @@ module.exports = (env) ->
     getTemplateName: -> "meross-garagedoor"
 
     openGaragedoor: ->
-      unless @deviceConnected and @device?
+      unless @_deviceStatus and @device?
         env.logger.info "Device '#{@name}' is offline"
         return
       @getGaragedoorStatus()
@@ -279,7 +303,7 @@ module.exports = (env) ->
       )
 
     closeGaragedoor: ->
-      unless @deviceConnected and @device?
+      unless @_deviceStatus and @device?
         env.logger.info "Device '#{@name}' is offline"
         return
       @getGaragedoorStatus()
@@ -300,15 +324,18 @@ module.exports = (env) ->
       try
         switch namespace
           when 'Appliance.GarageDoor.State'
+            @_setDeviceStatus(true)
+
             env.logger.debug "Garagedoor State: " + JSON.stringify(payload,null,2)
             if payload.state[0]?.open?
-              newState = Boolean(payload.state[0].open)
-            else
-              newState = false # contact is closed = garagedoor closed
-            @_setGaragedoorStatus(newState)
-            .then(()=>
-              env.logger.debug "Garagedoor state changed to " + (if newState then "open" else "closed")
-            )
+              if payload.state[0]?.open
+                newState = Boolean(payload.state[0].open)
+              else
+                newState = false # contact is closed = garagedoor closed
+              @_setGaragedoorStatus(newState)
+              .then(()=>
+                env.logger.debug "Garagedoor state changed to " + (if newState then "open" else "closed")
+              )
           when 'Appliance.System.Online'
             if (Number payload.online.status) == "1" then @_setDeviceStatus(true) else @_setDeviceStatus(false)
       catch err
@@ -317,8 +344,8 @@ module.exports = (env) ->
 
     _setGaragedoorStatus: (value) =>
       return new Promise((resolve,reject)=>
-        if @_garagedoorStatus is value
-          resolve()
+        #if @_garagedoorStatus is value
+        #  resolve()
         @_garagedoorStatus = value
         @emit 'garagedoorStatus', @_garagedoorStatus
         resolve()
@@ -334,7 +361,7 @@ module.exports = (env) ->
     execute: (device, command, options) =>
       env.logger.debug "Execute command: #{command} with options: #{options}"
       return new Promise((resolve, reject) =>
-        unless @deviceConnected and @device?
+        unless @_deviceStatus and @device?
           env.logger.info "Device '#{@name}' is offline"
           return reject()
         switch command
