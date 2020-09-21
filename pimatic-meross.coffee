@@ -175,30 +175,7 @@ module.exports = (env) ->
         unless @device?
           env.logger.debug "Device '#{@name}' does not exsist"
         else
-          @device.getSystemAllData((err,allData)=>
-            if err
-              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
-              return
-            env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
-            #set initial state
-            if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
-              newState = true #Boolean(allData.all.digest.garageDoor.open)
-            else
-              newState = false # contact is closed = garagedoor closed
-            @_setGaragedoorStatus(newState)
-            .then(()=>
-              @device.on 'data', @handleData
-              if allData?.all?.system?.online?.status?
-                if Boolean(allData?.all?.system?.online?.status) is true
-                  newOnlineState = true
-                if Boolean(allData?.all?.system?.online?.status) is false
-                  newOnlineState = false
-                #@_deviceStatus = newOnlineState
-                @_setDeviceStatus(newOnlineState)
-                env.logger.debug 'Online status: ' + newOnlineState
-            )
-          )
-
+          @_initDevice()
       )
 
       #env.logger.info "@_deviceStatus: " + @_deviceStatus
@@ -210,30 +187,7 @@ module.exports = (env) ->
           unless @device?
             env.logger.debug "Device '#{@name}' does not exsist"
             return
-          @device.getSystemAllData((err,allData)=>
-            if err
-              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
-              return
-            env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
-            #set initial state
-            if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
-              newState = true # Boolean(allData.all.digest.garageDoor.open)
-            else
-              newState = false # contact is closed = garagedoor closed
-            @_setGaragedoorStatus(newState)
-            .then(()=>
-              @device.on 'data', @handleData
-              if allData?.all?.system?.online?.status?
-                if Boolean(allData?.all?.system?.online?.status) is true
-                  newOnlineState = true
-                if Boolean(allData?.all?.system?.online?.status) is false
-                  newOnlineState = false
-                #@_deviceStatus = newOnlineState
-                @_setDeviceStatus(newOnlineState)
-                env.logger.debug 'Online status: ' + newOnlineState
-            )
-          )
-
+          @_initDevice()
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
@@ -241,30 +195,7 @@ module.exports = (env) ->
           unless @device?
             env.logger.debug "Device '#{@name}' does not exsist"
             return
-          @device.getSystemAllData((err,allData)=>
-            if err
-              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
-              return
-            env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
-            #set initial state
-            #env.logger.debug "Initial open/close status: " + allData?.all?.digest?.garageDoor[0]?.open
-            if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
-              newState = true # Boolean(allData.all.digest.garageDoor.open)
-            else
-              newState = false # contact is closed = garagedoor closed
-            @_setGaragedoorStatus(newState)
-            .then(()=>
-              @device.on 'data', @handleData
-              if allData?.all?.system?.online?.status?
-                if Boolean(allData?.all?.system?.online?.status)
-                  newOnlineState = true
-                else
-                  newOnlineState = false
-                #@deviceConnected = newOnlineState
-                @_setDeviceStatus(newOnlineState)
-                env.logger.debug 'Online status: ' + newOnlineState
-            )
-          )
+          @_initDevice()
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           #@deviceConnected = false
@@ -273,6 +204,32 @@ module.exports = (env) ->
             @device.removeListener('data', @handleData)
 
       super()
+
+    _initDevice: () =>
+      @device.getSystemAllData((err,allData)=>
+        if err
+          env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+          return
+        env.logger.debug "AllData: " + JSON.stringify(allData,null,2)
+        #set initial state
+        if Boolean(allData?.all?.digest?.garageDoor[0]?.open)
+          newState = true # Boolean(allData.all.digest.garageDoor.open)
+        else
+          newState = false # contact is closed = garagedoor closed
+        @_setGaragedoorStatus(newState)
+        .then(()=>
+          @device.on 'data', @handleData
+          if allData?.all?.system?.online?.status?
+            if Boolean(allData?.all?.system?.online?.status) is true
+              newOnlineState = true
+            if Boolean(allData?.all?.system?.online?.status) is false
+              newOnlineState = false
+            #@_deviceStatus = newOnlineState
+            @_setDeviceStatus(newOnlineState)
+            env.logger.debug 'Online status: ' + newOnlineState
+        )
+      )
+
 
     buttonPressed: (buttonId) =>
       if buttonId is "open"
@@ -337,7 +294,7 @@ module.exports = (env) ->
                 env.logger.debug "Garagedoor state changed to " + (if newState then "open" else "closed")
               )
           when 'Appliance.System.Online'
-            if (Number payload.online.status) == "1" then @_setDeviceStatus(true) else @_setDeviceStatus(false)
+            if (Number payload.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
       catch err
         env.logger.debug "error handleData handled: " + err
 
@@ -415,8 +372,8 @@ module.exports = (env) ->
       @id = @config.id
       @name = @config.name
       #@_state = lastState?.state?.value
-      @_deviceStatus = lastState?.deviceStatus?.value or "offline"
-      @deviceConnected = false
+      @_deviceStatus = lastState?.deviceStatus?.value or false
+      #@deviceConnected = false
 
       if @_destroyed then return
 
@@ -428,6 +385,30 @@ module.exports = (env) ->
 
       @_setDeviceStatus(@_deviceStatus)
 
+      @framework.variableManager.waitForInit()
+      .then(
+        @device = @plugin.meross.getDevice(@id)
+        unless @device?
+          env.logger.debug "Device '#{@id}' does not exsist"
+        else
+          @device.getSystemAllData((err,allData)=>
+            if err
+              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+              return
+            env.logger.debug "AllData msg310: " + JSON.stringify(allData,null,2)
+            #set initial state
+            @device.on 'data', @handleData
+            if allData?.all?.system?.online?.status?
+              if Boolean(allData?.all?.system?.online?.status) is true
+                newOnlineState = true
+              if Boolean(allData?.all?.system?.online?.status) is false
+                newOnlineState = false
+              #@_deviceStatus = newOnlineState
+              @_setDeviceStatus(newOnlineState)
+              env.logger.debug 'Online status: ' + newOnlineState
+          )
+      )
+
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
         if device.id is @id
@@ -436,8 +417,8 @@ module.exports = (env) ->
           @device.on 'data', @handleData
 
       @plugin.on 'deviceReconnected', (uuid) =>
-        if uuid is @id and @deviceConnected is false
-          @deviceConnected = true
+        if uuid is @id and @_deviceStatus is false
+          #@deviceConnected = true
           @device.getOnlineStatus((err, res) =>
             if err?
               env.logger.debug "Handled err getOnlineStatus: " + err
@@ -447,8 +428,7 @@ module.exports = (env) ->
           )
 
       @plugin.on 'deviceConnected', (uuid) =>
-        if uuid is @id and @deviceConnected is false
-          @deviceConnected = true
+        if uuid is @id and @_deviceStatus is false
           @device = @plugin.meross.getDevice(@id)
           @device.getSystemAbilities((err,abilities)=>
             if err?
@@ -466,7 +446,6 @@ module.exports = (env) ->
           )
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
-          @deviceConnected = false
           @_setDeviceStatus(false)
           if @device?
             @device.removeListener('data', @handleData)
@@ -483,15 +462,13 @@ module.exports = (env) ->
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
           if (Number payload.online.status) == 1
-            @deviceConnected = true
             @_setDeviceStatus(true) 
           else 
-            @deviceConnected = false
             @_setDeviceStatus(false)
 
 
     changeStateTo: (state) =>
-      if @deviceConnected and @device?
+      if @_deviceStatus and @device?
         if state
           @device.controlToggleX(0,1, (err)=>
             if err?
@@ -514,7 +491,7 @@ module.exports = (env) ->
     execute: (device, command, options) =>
       env.logger.debug "Execute command: #{command} with options: #{options}"
       return new Promise((resolve, reject) =>
-        unless @deviceConnected and @device?
+        unless @_deviceStatus and @device?
           env.logger.info "Device '#{@name}' is offline"
           return reject()
         reject("Not implemented")
@@ -533,14 +510,15 @@ module.exports = (env) ->
       @id = @config.id
       @name = @config.name
       @_state = lastState?.state?.value
-      @_deviceStatus = lastState?.deviceStatus?.value or "offline"
+      @_deviceStatus = lastState?.deviceStatus?.value or false
       @_voltage = lastState?.voltage?.value or 0
       @_current = lastState?.current?.value or 0
       @_power = lastState?.power?.value or 0
       @_powerConsumption = lastState?.powerConsumption?.value or 0
-      @deviceConnected = false
+      #@deviceConnected = false
 
-      @pollElectricityTime = @config.polltimeElectricity ? 5 # seconds
+      @pollElectricityTime = @config.polltimeElectricity ? 30 # seconds
+      @pollElectricityTime = 30 if @pollElectricityTime < 30 
       @pollConsumptionTime = @config.polltimeConsumption ? 86400 # 1 day is 86400 seconds
 
       if @_destroyed then return
@@ -573,6 +551,30 @@ module.exports = (env) ->
 
       @_setDeviceStatus(@_deviceStatus)
 
+      @framework.variableManager.waitForInit()
+      .then(
+        @device = @plugin.meross.getDevice(@id)
+        unless @device?
+          env.logger.debug "Device '#{@id}' does not exsist"
+        else
+          @device.getSystemAllData((err,allData)=>
+            if err
+              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+              return
+            env.logger.debug "AllData msg310: " + JSON.stringify(allData,null,2)
+            #set initial state
+            @device.on 'data', @handleData
+            if allData?.all?.system?.online?.status?
+              if Boolean(allData?.all?.system?.online?.status) is true
+                newOnlineState = true
+              if Boolean(allData?.all?.system?.online?.status) is false
+                newOnlineState = false
+              #@_deviceStatus = newOnlineState
+              @_setDeviceStatus(newOnlineState)
+              env.logger.debug 'Online status: ' + newOnlineState
+          )
+      )
+
       @framework.on 'deviceChanged', (device) =>
         if @_destroyed then return
         if device.id is @id
@@ -581,8 +583,8 @@ module.exports = (env) ->
           @device.on 'data', @handleData
 
       @plugin.on 'deviceReconnected', (uuid) =>
-        if uuid is @id and @deviceConnected is false
-          @deviceConnected = true
+        if uuid is @id and @_deviceStatus is false
+          #@deviceConnected = true
           @device.getOnlineStatus((err, res) =>
             if err?
               env.logger.debug "Handled error getOnlineStatus: " + err
@@ -592,14 +594,14 @@ module.exports = (env) ->
           )
 
       @plugin.on 'deviceConnected', (uuid) =>
-        if uuid is @id and @deviceConnected is false
+        if uuid is @id and @_deviceStatus is false
           #@deviceConnected = true
           @device = @plugin.meross.getDevice(@id)
           @device.getSystemAbilities((err,abilities)=>
             if err?
               env.logger.debug "Handled error getSystemAbilities " + err
             else
-              env.logger.debug "Abilities " + JSON.stringify(abilities,null,2)
+              env.logger.debug "Abilities msg310 " + JSON.stringify(abilities,null,2)
           )
           @device.on 'data', @handleData   
           @device.getOnlineStatus((err, res) =>
@@ -612,18 +614,18 @@ module.exports = (env) ->
 
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
-          @deviceConnected = false
+          #@deviceConnected = false
           @_setDeviceStatus(false)
           if @device?
             @device.removeListener('data', @handleData)
 
       @pollElectricity = () =>
-        if @device? and (@deviceConnected is true)
+        if @device? and (@_deviceStatus is true)
           @device.getControlElectricity((err,resp)=>
             if err?
               env.logger.debug "Handled error getControlElectricity: " + err
             else
-              #env.logger.debug 'getControlElectricity response: ' + JSON.stringify(resp,null,2)
+              env.logger.debug 'Electricity values polled' # response: ' + JSON.stringify(resp,null,2)
               @_voltage = resp.electricity.voltage / 10
               @_current = resp.electricity.current / 1000
               @_power = resp.electricity.power / 1000
@@ -635,12 +637,12 @@ module.exports = (env) ->
       @pollElectricity()
       
       @pollConsumption = () =>
-        if @device? and (@deviceConnected is true)
+        if @device? and (@_deviceStatus is true)
           @device.getControlPowerConsumptionX((err,resp)=>
             if err?
               env.logger.debug "Handled error getControlPowerConsumptionX: " + err
             else
-              #env.logger.debug 'getControlPowerConsumptionX response: ' + JSON.stringify(resp,null,2)
+              env.logger.debug 'Power Consumption values polled' # response: ' + JSON.stringify(resp,null,2)
               @_powerConsumption = resp.consumptionx[0].value
               @emit 'powerConsumption', @_powerConsumption
           )
@@ -659,10 +661,8 @@ module.exports = (env) ->
           @_setState(Boolean(payload.toggle[0].onoff))
         when 'Appliance.System.Online'
           if (Number payload.online.status) == 1 
-            @deviceConnected = true
             @_setDeviceStatus(true) 
           else 
-            @deviceConnected = false
             @_setDeviceStatus(false)
         when 'Appliance.Control.Electricity' # power, voltage, current
           @_voltage = payload.electricity.voltage / 10
@@ -673,7 +673,9 @@ module.exports = (env) ->
           @emit 'power', @_power
 
     changeStateTo: (state) =>
-      if @deviceConnected and @device?
+      env.logger.debug "@_deviceStatus " + @_deviceStatus + ", @device? " + @device? + ", state " + state
+      if @_deviceStatus and @device?
+        env.logger.debug "Change state to " + state
         if state
           @device.controlToggleX(0,1, (err)=>
             if err?
@@ -699,7 +701,7 @@ module.exports = (env) ->
     execute: (device, command, options) =>
       env.logger.debug "Execute command: #{command} with options: #{options}"
       return new Promise((resolve, reject) =>
-        unless @deviceConnected and @device?
+        unless @_deviceStatus and @device?
           env.logger.info "Device '#{@name}' is offline"
           return reject()
         reject("Not implemented")

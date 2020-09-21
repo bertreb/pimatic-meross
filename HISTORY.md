@@ -40,3 +40,6 @@
 	* edit reconnect
 * 20200919, v0.2.6
 	* changed msg100 device status handling
+* 20200919, v0.2.7
+	* update startup handling
+	* set polltime minimum to 30 seconds
