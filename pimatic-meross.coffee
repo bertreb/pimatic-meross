@@ -184,6 +184,7 @@ module.exports = (env) ->
       @plugin.on 'deviceReconnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
           @device = @plugin.meross.getDevice(@id)
+          env.logger.debug "DeviceReConnected " + @id
           unless @device?
             env.logger.debug "Device '#{@name}' does not exsist"
             return
@@ -192,10 +193,12 @@ module.exports = (env) ->
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
           @device = @plugin.meross.getDevice(@id)
+          env.logger.debug "DeviceConnected " + @id
           unless @device?
             env.logger.debug "Device '#{@name}' does not exsist"
             return
           @_initDevice()
+
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
           #@deviceConnected = false
@@ -206,6 +209,7 @@ module.exports = (env) ->
       super()
 
     _initDevice: () =>
+      @device.on 'data', @handleData
       @device.getSystemAllData((err,allData)=>
         if err
           env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
@@ -218,7 +222,6 @@ module.exports = (env) ->
           newState = false # contact is closed = garagedoor closed
         @_setGaragedoorStatus(newState)
         .then(()=>
-          @device.on 'data', @handleData
           if allData?.all?.system?.online?.status?
             if Boolean(allData?.all?.system?.online?.status) is true
               newOnlineState = true
@@ -371,7 +374,7 @@ module.exports = (env) ->
       #@config = config
       @id = @config.id
       @name = @config.name
-      #@_state = lastState?.state?.value
+      @_state = lastState?.state?.value
       @_deviceStatus = lastState?.deviceStatus?.value or false
       #@deviceConnected = false
 
@@ -389,69 +392,57 @@ module.exports = (env) ->
       .then(
         @device = @plugin.meross.getDevice(@id)
         unless @device?
-          env.logger.debug "Device '#{@id}' does not exsist"
+          env.logger.debug "Device '#{@name}' does not exsist"
         else
-          @device.getSystemAllData((err,allData)=>
-            if err
-              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
-              return
-            env.logger.debug "AllData msg310: " + JSON.stringify(allData,null,2)
-            #set initial state
-            @device.on 'data', @handleData
-            if allData?.all?.system?.online?.status?
-              if Boolean(allData?.all?.system?.online?.status) is true
-                newOnlineState = true
-              if Boolean(allData?.all?.system?.online?.status) is false
-                newOnlineState = false
-              #@_deviceStatus = newOnlineState
-              @_setDeviceStatus(newOnlineState)
-              env.logger.debug 'Online status: ' + newOnlineState
-          )
+          @_initDevice()
       )
-
-      @framework.on 'deviceChanged', (device) =>
-        if @_destroyed then return
-        if device.id is @id
-          env.logger.debug "deviceChanged " + device.id
-          @device = @plugin.meross.getDevice(@id)
-          @device.on 'data', @handleData
 
       @plugin.on 'deviceReconnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
-          #@deviceConnected = true
-          @device.getOnlineStatus((err, res) =>
-            if err?
-              env.logger.debug "Handled err getOnlineStatus: " + err
-            else
-              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
-          )
+          @device = @plugin.meross.getDevice(@id)
+          env.logger.debug "DeviceReConnected " + @id
+          unless @device?
+            env.logger.debug "Device '#{@name}' does not exsist"
+            return
+          @_initDevice()
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
           @device = @plugin.meross.getDevice(@id)
-          @device.getSystemAbilities((err,abilities)=>
-            if err?
-              env.logger.debug "Handled err getSystemAbilities " + err
-            else
-              env.logger.debug "Abilities " + JSON.stringify(abilities,null,2)
-          )
-          @device.on 'data', @handleData
-          @device.getOnlineStatus((err, res) =>
-            if err?
-              env.logger.debug "Handled error getOnlineStatus: " + err
-            else
-              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
-          )
+          env.logger.debug "DeviceConnected " + @id
+          unless @device?
+            env.logger.debug "Device '#{@name}' does not exsist"
+            return
+          @_initDevice()
+
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
+          #@deviceConnected = false
           @_setDeviceStatus(false)
           if @device?
             @device.removeListener('data', @handleData)
 
+
       super()
 
+
+    _initDevice: () =>
+      @device.on 'data', @handleData
+      @device.getSystemAllData((err,allData)=>
+        if err
+          env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+          return
+        env.logger.debug "AllData msg210: " + JSON.stringify(allData,null,2)
+        #set initial state
+        if allData?.all?.system?.online?.status?
+          if Boolean(allData?.all?.system?.online?.status) is true
+            newOnlineState = true
+          if Boolean(allData?.all?.system?.online?.status) is false
+            newOnlineState = false
+          #@_deviceStatus = newOnlineState
+          @_setDeviceStatus(newOnlineState)
+          env.logger.debug 'Online status: ' + newOnlineState
+      )
 
     handleData: (namespace, payload) =>
       env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)
@@ -555,62 +546,28 @@ module.exports = (env) ->
       .then(
         @device = @plugin.meross.getDevice(@id)
         unless @device?
-          env.logger.debug "Device '#{@id}' does not exsist"
+          env.logger.debug "Device '#{@name}' does not exsist"
         else
-          @device.getSystemAllData((err,allData)=>
-            if err
-              env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
-              return
-            env.logger.debug "AllData msg310: " + JSON.stringify(allData,null,2)
-            #set initial state
-            @device.on 'data', @handleData
-            if allData?.all?.system?.online?.status?
-              if Boolean(allData?.all?.system?.online?.status) is true
-                newOnlineState = true
-              if Boolean(allData?.all?.system?.online?.status) is false
-                newOnlineState = false
-              #@_deviceStatus = newOnlineState
-              @_setDeviceStatus(newOnlineState)
-              env.logger.debug 'Online status: ' + newOnlineState
-          )
+          @_initDevice()
       )
-
-      @framework.on 'deviceChanged', (device) =>
-        if @_destroyed then return
-        if device.id is @id
-          env.logger.debug "deviceChanged " + device.id
-          @device = @plugin.meross.getDevice(@id)
-          @device.on 'data', @handleData
 
       @plugin.on 'deviceReconnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
-          #@deviceConnected = true
-          @device.getOnlineStatus((err, res) =>
-            if err?
-              env.logger.debug "Handled error getOnlineStatus: " + err
-            else
-              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
-          )
+          @device = @plugin.meross.getDevice(@id)
+          env.logger.debug "DeviceReConnected " + @id
+          unless @device?
+            env.logger.debug "Device '#{@name}' does not exsist"
+            return
+          @_initDevice()
 
       @plugin.on 'deviceConnected', (uuid) =>
         if uuid is @id and @_deviceStatus is false
-          #@deviceConnected = true
           @device = @plugin.meross.getDevice(@id)
-          @device.getSystemAbilities((err,abilities)=>
-            if err?
-              env.logger.debug "Handled error getSystemAbilities " + err
-            else
-              env.logger.debug "Abilities msg310 " + JSON.stringify(abilities,null,2)
-          )
-          @device.on 'data', @handleData   
-          @device.getOnlineStatus((err, res) =>
-            if err?
-              env.logger.debug "Handled error getOnlineStatus: " + err
-            else
-              if (Number res.online.status) == 1 then @_setDeviceStatus(true) else @_setDeviceStatus(false)
-              env.logger.debug 'Online status: ' + JSON.stringify(res,null,2)
-          )
+          env.logger.debug "DeviceConnected " + @id
+          unless @device?
+            env.logger.debug "Device '#{@name}' does not exsist"
+            return
+          @_initDevice()
 
       @plugin.on 'deviceDisonnected', (uuid) =>
         if uuid is @id
@@ -618,6 +575,7 @@ module.exports = (env) ->
           @_setDeviceStatus(false)
           if @device?
             @device.removeListener('data', @handleData)
+
 
       @pollElectricity = () =>
         if @device? and (@_deviceStatus is true)
@@ -651,6 +609,24 @@ module.exports = (env) ->
 
       super()
 
+
+    _initDevice: () =>
+      @device.on 'data', @handleData
+      @device.getSystemAllData((err,allData)=>
+        if err
+          env.logger.debug "Error getSystemAllData for device '#{@id}' " + err
+          return
+        env.logger.debug "AllData msg310: " + JSON.stringify(allData,null,2)
+        #set initial state
+        if allData?.all?.system?.online?.status?
+          if Boolean(allData?.all?.system?.online?.status) is true
+            newOnlineState = true
+          if Boolean(allData?.all?.system?.online?.status) is false
+            newOnlineState = false
+          #@_deviceStatus = newOnlineState
+          @_setDeviceStatus(newOnlineState)
+          env.logger.debug 'Online status: ' + newOnlineState
+      )
 
     handleData: (namespace, payload) =>
       env.logger.debug "device: " + @id + ", namespace: " + namespace + ", Payload: " + JSON.stringify(payload,null,2)

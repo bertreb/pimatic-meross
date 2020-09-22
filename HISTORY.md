@@ -43,3 +43,5 @@
 * 20200919, v0.2.7
 	* update startup handling
 	* set polltime minimum to 30 seconds
+* 20200922, v0.2.8
+	* update connect/reconnect handling
